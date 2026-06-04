@@ -117,37 +117,53 @@ public sealed class SettingsForm : Form
 
     private void Build()
     {
+        var devices = DeviceTabs().ToArray();
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 1,
+            RowCount = 2,
             ColumnCount = 1,
-            Padding = new Padding(8),
+            Padding = new Padding(0),
             BackColor = Shell,
         };
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 66));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         Controls.Add(root);
+
+        root.Controls.Add(new AppHeader(devices)
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0),
+        }, 0, 0);
+
+        var tabHost = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(10, 6, 10, 10),
+            BackColor = Shell,
+        };
+        root.Controls.Add(tabHost, 0, 1);
 
         var tabs = new TabControl
         {
             Dock = DockStyle.Fill,
             DrawMode = TabDrawMode.OwnerDrawFixed,
             SizeMode = TabSizeMode.Fixed,
-            ItemSize = new Size(285, 34),
-            Padding = new Point(14, 4),
+            ItemSize = new Size(295, 38),
+            Padding = new Point(16, 5),
             BackColor = Shell,
         };
         tabs.DrawItem += DrawDeviceTab;
         tabs.Resize += (_, _) => SyncLayouts();
-        root.Controls.Add(tabs, 0, 0);
+        tabHost.Controls.Add(tabs);
 
-        foreach (var device in DeviceTabs())
+        foreach (var device in devices)
         {
             var page = new TabPage(device.Title)
             {
                 BackColor = Shell,
                 ForeColor = TextMain,
-                Padding = new Padding(12),
+                Padding = new Padding(16, 14, 16, 16),
                 AutoScroll = true,
                 Tag = device,
             };
@@ -437,8 +453,8 @@ public sealed class SettingsForm : Form
     private static void FitTrackpadLayout(TabPage page, TableLayoutPanel grid, FlowLayoutPanel left, FlowLayoutPanel middle, FlowLayoutPanel right)
     {
         var available = Math.Max(LeftColumnWidth + (MainColumnWidth * 2) + TrackpadPageGutter, AvailablePageWidth(page) - 20);
-        var leftWidth = Math.Clamp((int)Math.Round(available * 0.24), LeftColumnWidth, 470);
-        var mainWidth = Math.Clamp((available - leftWidth - TrackpadPageGutter) / 2, MainColumnWidth, 650);
+        var leftWidth = Math.Clamp((int)Math.Round(available * 0.27), LeftColumnWidth, 590);
+        var mainWidth = Math.Clamp((available - leftWidth - TrackpadPageGutter) / 2, MainColumnWidth, 880);
 
         grid.Width = leftWidth + (mainWidth * 2) + TrackpadPageGutter;
         grid.ColumnStyles[0].Width = leftWidth;
@@ -452,8 +468,8 @@ public sealed class SettingsForm : Form
     private static void FitKeyboardLayout(TabPage page, TableLayoutPanel grid, FlowLayoutPanel left, FlowLayoutPanel right)
     {
         var available = Math.Max(KeyboardLeftWidth + KeyboardRightWidth + KeyboardPageGutter, AvailablePageWidth(page) - 20);
-        var leftWidth = Math.Clamp((int)Math.Round(available * 0.42), KeyboardLeftWidth, 760);
-        var rightWidth = Math.Clamp(available - leftWidth - KeyboardPageGutter, KeyboardRightWidth, 980);
+        var leftWidth = Math.Clamp((int)Math.Round(available * 0.43), KeyboardLeftWidth, 920);
+        var rightWidth = Math.Clamp(available - leftWidth - KeyboardPageGutter, KeyboardRightWidth, 1260);
 
         grid.Width = leftWidth + rightWidth + KeyboardPageGutter;
         grid.ColumnStyles[0].Width = leftWidth;
@@ -536,7 +552,7 @@ public sealed class SettingsForm : Form
         if (textBox is not null && button is not null && labels.Length > 0)
         {
             labels[0].Width = Math.Clamp(labels[0].Width, 90, 125);
-            button.Width = Math.Clamp(button.Width, 60, 76);
+            button.Width = Math.Clamp(button.Width, 78, 94);
             textBox.Width = Math.Max(120, available - labels[0].Width - button.Width - 14);
         }
         else if (combo is not null && labels.Length > 0)
@@ -592,7 +608,7 @@ public sealed class SettingsForm : Form
             MinimumSize = new Size(width - 18, 0),
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new Padding(12, 28, 12, 12),
+            Padding = new Padding(12, 50, 12, 14),
             Margin = new Padding(4, 4, 8, 12),
             BackColor = Surface,
             ForeColor = TextMain,
@@ -605,7 +621,7 @@ public sealed class SettingsForm : Form
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Width = width - 44,
             MinimumSize = new Size(width - 44, 0),
-            Location = new Point(14, 30),
+            Location = new Point(14, 48),
             Margin = new Padding(0),
             Padding = new Padding(0),
             Tag = width - 44,
@@ -778,7 +794,7 @@ public sealed class SettingsForm : Form
         var textBox = new TextBox { Width = Math.Max(120, contentWidth - 195), BackColor = ThemePalette.Control, ForeColor = TextMain, BorderStyle = BorderStyle.FixedSingle };
         controlsByName[name] = textBox;
         row.Controls.Add(textBox);
-        var record = ThemedButton("Record", 64, 28);
+        var record = ThemedButton("Record", 82, 28);
         record.Click += (_, _) => RecordHotkey(textBox);
         row.Controls.Add(record);
         parent.Controls.Add(row);
@@ -1297,10 +1313,10 @@ public sealed class SettingsForm : Form
         var info = page.Tag as DeviceTabInfo;
         var selected = e.State.HasFlag(DrawItemState.Selected);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        var bounds = Rectangle.Inflate(e.Bounds, -3, -4);
+        var bounds = Rectangle.Inflate(e.Bounds, -4, -5);
         using (var tabPath = Rounded(bounds, 7))
-        using (var background = new SolidBrush(selected ? Surface : SurfaceAlt))
-        using (var border = new Pen(selected ? Stroke : ThemePalette.StrokeSoft))
+        using (var background = new LinearGradientBrush(bounds, selected ? Color.White : ThemePalette.SurfaceAlt, selected ? ThemePalette.SurfaceRaised : Color.FromArgb(228, 233, 241), LinearGradientMode.Vertical))
+        using (var border = new Pen(selected ? Color.FromArgb(160, 170, 184) : ThemePalette.StrokeSoft))
         {
             e.Graphics.FillPath(background, tabPath);
             e.Graphics.DrawPath(border, tabPath);
@@ -1308,17 +1324,18 @@ public sealed class SettingsForm : Form
 
         if (selected)
         {
-            using var accentLine = new Pen(Accent, 3);
-            e.Graphics.DrawLine(accentLine, bounds.Left + 10, bounds.Bottom - 2, bounds.Right - 10, bounds.Bottom - 2);
+            using var accentFill = new SolidBrush(Accent);
+            using var accentPath = Rounded(new Rectangle(bounds.Left + 9, bounds.Bottom - 5, bounds.Width - 18, 3), 2);
+            e.Graphics.FillPath(accentFill, accentPath);
         }
 
         using var dot = new SolidBrush(info?.Connected == true ? Accent : Color.FromArgb(164, 170, 180));
-        e.Graphics.FillEllipse(dot, bounds.X + 12, bounds.Y + 10, 10, 10);
+        e.Graphics.FillEllipse(dot, bounds.X + 14, bounds.Y + 12, 9, 9);
         TextRenderer.DrawText(
             e.Graphics,
             page.Text,
             Font,
-            new Rectangle(bounds.X + 30, bounds.Y + 3, bounds.Width - 34, bounds.Height - 5),
+            new Rectangle(bounds.X + 32, bounds.Y + 3, bounds.Width - 38, bounds.Height - 6),
             selected ? TextMain : TextMuted,
             TextFormatFlags.EndEllipsis | TextFormatFlags.VerticalCenter);
     }
@@ -1541,15 +1558,15 @@ internal sealed record ActionOption(string Label, string Value)
 
 internal static class ThemePalette
 {
-    public static readonly Color Shell = Color.FromArgb(244, 246, 249);
+    public static readonly Color Shell = Color.FromArgb(247, 249, 252);
     public static readonly Color Surface = Color.FromArgb(255, 255, 255);
-    public static readonly Color SurfaceAlt = Color.FromArgb(235, 239, 245);
-    public static readonly Color SurfaceRaised = Color.FromArgb(250, 251, 253);
+    public static readonly Color SurfaceAlt = Color.FromArgb(238, 242, 247);
+    public static readonly Color SurfaceRaised = Color.FromArgb(251, 252, 254);
     public static readonly Color Control = Color.FromArgb(255, 255, 255);
     public static readonly Color ControlHover = Color.FromArgb(229, 242, 255);
     public static readonly Color ControlPressed = Color.FromArgb(205, 228, 255);
-    public static readonly Color Stroke = Color.FromArgb(198, 205, 216);
-    public static readonly Color StrokeSoft = Color.FromArgb(222, 227, 235);
+    public static readonly Color Stroke = Color.FromArgb(187, 197, 211);
+    public static readonly Color StrokeSoft = Color.FromArgb(218, 225, 235);
     public static readonly Color TextMain = Color.FromArgb(29, 29, 31);
     public static readonly Color TextMuted = Color.FromArgb(102, 109, 119);
     public static readonly Color Accent = Color.FromArgb(0, 122, 255);
@@ -1565,6 +1582,72 @@ internal enum DeviceKind
 
 internal sealed record DeviceTabInfo(DeviceKind Kind, string Title, HidDeviceInfo? Device, bool Connected, BatteryStatus Battery);
 
+internal sealed class AppHeader : Control
+{
+    private readonly DeviceTabInfo[] devices;
+
+    public AppHeader(DeviceTabInfo[] devices)
+    {
+        this.devices = devices;
+        DoubleBuffered = true;
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        e.Graphics.Clear(ThemePalette.Surface);
+
+        using (var border = new Pen(ThemePalette.StrokeSoft))
+        {
+            e.Graphics.DrawLine(border, 0, Height - 1, Width, Height - 1);
+        }
+
+        using var eyebrowFont = new Font("Segoe UI Semibold", 7.8F);
+        using var titleFont = new Font("Segoe UI Semibold", 15F);
+        TextRenderer.DrawText(e.Graphics, "APPLE PERIPHERALS", eyebrowFont, new Rectangle(22, 10, 220, 18), ThemePalette.TextMuted, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        TextRenderer.DrawText(e.Graphics, "Magic Trackpad + Keyboard", titleFont, new Rectangle(22, 28, 420, 28), ThemePalette.TextMain, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+
+        var x = Width - 24;
+        foreach (var device in devices.GroupBy(item => item.Kind).Select(group => group.First()).Reverse())
+        {
+            var label = device.Kind == DeviceKind.Trackpad ? "Trackpad" : "Keyboard";
+            var width = device.Connected ? 166 : 194;
+            x -= width;
+            DrawStatusChip(e.Graphics, new Rectangle(x, 18, width, 30), label, device.Connected);
+            x -= 10;
+        }
+    }
+
+    private static void DrawStatusChip(Graphics graphics, Rectangle rect, string label, bool connected)
+    {
+        using var path = Rounded(rect, 8);
+        using var fill = new SolidBrush(connected ? ThemePalette.AccentSurface : ThemePalette.SurfaceAlt);
+        using var border = new Pen(connected ? Color.FromArgb(166, 204, 245) : ThemePalette.StrokeSoft);
+        graphics.FillPath(fill, path);
+        graphics.DrawPath(border, path);
+
+        using var dot = new SolidBrush(connected ? ThemePalette.Accent : Color.FromArgb(160, 167, 178));
+        graphics.FillEllipse(dot, rect.Left + 12, rect.Top + 10, 9, 9);
+
+        var status = connected ? "Ready" : "Not detected";
+        using var font = new Font("Segoe UI", 8.6F);
+        TextRenderer.DrawText(graphics, $"{label} {status}", font, new Rectangle(rect.Left + 27, rect.Top + 2, rect.Width - 34, rect.Height - 4), ThemePalette.TextMain, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+    }
+
+    private static GraphicsPath Rounded(Rectangle rect, int radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = radius * 2;
+        path.AddArc(rect.Left, rect.Top, diameter, diameter, 180, 90);
+        path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90);
+        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+}
+
 internal sealed class ThemedGroupBox : GroupBox
 {
     public ThemedGroupBox()
@@ -1578,16 +1661,30 @@ internal sealed class ThemedGroupBox : GroupBox
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
         var title = Text.Trim();
-        var titleSize = TextRenderer.MeasureText(e.Graphics, title, Font, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
-        var titleRect = new Rectangle(18, 0, titleSize.Width + 12, Math.Max(24, titleSize.Height + 4));
-        var panelRect = new Rectangle(0, titleRect.Height / 2, Width - 1, Height - titleRect.Height / 2 - 1);
+        var panelRect = new Rectangle(0, 0, Width - 1, Height - 1);
         using var panelPath = Rounded(panelRect, 8);
         using var fill = new SolidBrush(BackColor);
         using var border = new Pen(ThemePalette.StrokeSoft);
         e.Graphics.FillPath(fill, panelPath);
         e.Graphics.DrawPath(border, panelPath);
 
-        TextRenderer.DrawText(e.Graphics, title, Font, titleRect, ForeColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        var headerRect = new Rectangle(1, 1, Width - 2, 42);
+        using (var headerPath = TopRounded(headerRect, 8))
+        using (var headerFill = new LinearGradientBrush(headerRect, ThemePalette.SurfaceRaised, Color.FromArgb(244, 247, 251), LinearGradientMode.Vertical))
+        using (var headerLine = new Pen(ThemePalette.StrokeSoft))
+        {
+            e.Graphics.FillPath(headerFill, headerPath);
+            e.Graphics.DrawLine(headerLine, headerRect.Left, headerRect.Bottom, headerRect.Right, headerRect.Bottom);
+        }
+
+        using (var accent = new SolidBrush(ThemePalette.Accent))
+        using (var accentPath = Rounded(new Rectangle(14, 14, 4, 16), 2))
+        {
+            e.Graphics.FillPath(accent, accentPath);
+        }
+
+        using var titleFont = new Font(Font, FontStyle.Bold);
+        TextRenderer.DrawText(e.Graphics, title, titleFont, new Rectangle(26, 7, Width - 42, 30), ForeColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
     }
 
     private static GraphicsPath Rounded(Rectangle rect, int radius)
@@ -1598,6 +1695,19 @@ internal sealed class ThemedGroupBox : GroupBox
         path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90);
         path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
         path.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    private static GraphicsPath TopRounded(Rectangle rect, int radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = radius * 2;
+        path.AddArc(rect.Left, rect.Top, diameter, diameter, 180, 90);
+        path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90);
+        path.AddLine(rect.Right, rect.Top + radius, rect.Right, rect.Bottom);
+        path.AddLine(rect.Right, rect.Bottom, rect.Left, rect.Bottom);
+        path.AddLine(rect.Left, rect.Bottom, rect.Left, rect.Top + radius);
         path.CloseFigure();
         return path;
     }
@@ -1637,9 +1747,12 @@ internal sealed class TrackpadPreview : Control
     {
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        var width = Math.Min(Math.Max(230, Width - 46), 520);
-        var height = Math.Min(184, (int)Math.Round(width * 0.69));
-        var body = new Rectangle((Width - width) / 2, Math.Max(18, (Height - height) / 2 - 8), width, height);
+        var stage = new Rectangle(4, 8, Width - 8, Height - 16);
+        DrawStage(e.Graphics, stage);
+
+        var width = Math.Min(Math.Max(230, stage.Width - 58), 560);
+        var height = Math.Min(Math.Max(128, stage.Height - 58), (int)Math.Round(width * 0.69));
+        var body = new Rectangle(stage.Left + (stage.Width - width) / 2, stage.Top + Math.Max(20, (stage.Height - height) / 2 - 8), width, height);
         var wedge = new Rectangle(body.Left + 7, body.Bottom - 16, body.Width - 14, 28);
         var shadow = new Rectangle(body.Left + 12, wedge.Bottom - 4, body.Width - 24, 18);
 
@@ -1698,6 +1811,26 @@ internal sealed class TrackpadPreview : Control
         e.Graphics.FillRectangle(glint, portGlint);
     }
 
+    private static void DrawStage(Graphics graphics, Rectangle rect)
+    {
+        using (var stagePath = Rounded(rect, 8))
+        using (var fill = new LinearGradientBrush(rect, Color.FromArgb(250, 252, 255), Color.FromArgb(238, 243, 249), LinearGradientMode.Vertical))
+        using (var border = new Pen(ThemePalette.StrokeSoft))
+        {
+            graphics.FillPath(fill, stagePath);
+            graphics.DrawPath(border, stagePath);
+        }
+
+        using var dot = new SolidBrush(Color.FromArgb(48, 143, 154, 170));
+        for (var y = rect.Top + 18; y < rect.Bottom - 16; y += 18)
+        {
+            for (var x = rect.Left + 20; x < rect.Right - 18; x += 18)
+            {
+                graphics.FillEllipse(dot, x, y, 2, 2);
+            }
+        }
+    }
+
     private static GraphicsPath Rounded(Rectangle rect, int radius)
     {
         var path = new GraphicsPath();
@@ -1719,9 +1852,12 @@ internal sealed class KeyboardPreview : Control
     {
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        var width = Math.Max(480, Width - 54);
-        var height = Math.Min(205, (int)Math.Round(width * 0.36));
-        var keyboard = new Rectangle((Width - width) / 2, Math.Max(24, (Height - height) / 2 - 4), width, height);
+        var stage = new Rectangle(4, 8, Width - 8, Height - 16);
+        DrawStage(e.Graphics, stage);
+
+        var width = Math.Max(360, Math.Min(stage.Width - 54, 900));
+        var height = Math.Min(Math.Max(150, stage.Height - 64), (int)Math.Round(width * 0.36));
+        var keyboard = new Rectangle(stage.Left + (stage.Width - width) / 2, stage.Top + Math.Max(24, (stage.Height - height) / 2 - 4), width, height);
 
         using (var shadowPath = Rounded(new Rectangle(keyboard.Left + 10, keyboard.Bottom - 2, keyboard.Width - 20, 18), 20))
         using (var shadowBrush = new PathGradientBrush(shadowPath)
@@ -1769,6 +1905,26 @@ internal sealed class KeyboardPreview : Control
                 x += keyWidth + keyGap;
             }
             y += keyHeight + rowGap;
+        }
+    }
+
+    private static void DrawStage(Graphics graphics, Rectangle rect)
+    {
+        using (var stagePath = Rounded(rect, 8))
+        using (var fill = new LinearGradientBrush(rect, Color.FromArgb(250, 252, 255), Color.FromArgb(238, 243, 249), LinearGradientMode.Vertical))
+        using (var border = new Pen(ThemePalette.StrokeSoft))
+        {
+            graphics.FillPath(fill, stagePath);
+            graphics.DrawPath(border, stagePath);
+        }
+
+        using var dot = new SolidBrush(Color.FromArgb(48, 143, 154, 170));
+        for (var y = rect.Top + 18; y < rect.Bottom - 16; y += 18)
+        {
+            for (var x = rect.Left + 20; x < rect.Right - 18; x += 18)
+            {
+                graphics.FillEllipse(dot, x, y, 2, 2);
+            }
         }
     }
 
