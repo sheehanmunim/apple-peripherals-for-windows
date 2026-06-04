@@ -14,6 +14,11 @@ public sealed class SettingsForm : Form
     private const int KeyboardRightWidth = 500;
     private const int TrackpadPageGutter = 36;
     private const int KeyboardPageGutter = 36;
+    private const int DevicePageGutter = 20;
+    private const int TrackpadStageWidth = 430;
+    private const int TrackpadInspectorWidth = 600;
+    private const int KeyboardStageWidth = 520;
+    private const int KeyboardInspectorWidth = 520;
     private static readonly Color Shell = ThemePalette.Shell;
     private static readonly Color Surface = ThemePalette.Surface;
     private static readonly Color SurfaceAlt = ThemePalette.SurfaceAlt;
@@ -183,89 +188,85 @@ public sealed class SettingsForm : Form
     {
         var grid = new TableLayoutPanel
         {
-            Width = LeftColumnWidth + MainColumnWidth + MainColumnWidth + 36,
-            Height = 1240,
+            Width = TrackpadStageWidth + TrackpadInspectorWidth + DevicePageGutter,
+            Height = 1380,
             Anchor = AnchorStyles.Top | AnchorStyles.Left,
-            ColumnCount = 3,
+            ColumnCount = 2,
             RowCount = 1,
             BackColor = Shell,
         };
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, LeftColumnWidth));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, MainColumnWidth));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, MainColumnWidth));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, TrackpadStageWidth));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, TrackpadInspectorWidth));
         page.Controls.Add(grid);
 
-        var left = Column();
-        var middle = Column();
-        var right = Column();
-        grid.Controls.Add(left, 0, 0);
-        grid.Controls.Add(middle, 1, 0);
-        grid.Controls.Add(right, 2, 0);
+        var stage = Column();
+        var inspector = Column();
+        grid.Controls.Add(stage, 0, 0);
+        grid.Controls.Add(inspector, 1, 0);
 
-        BuildTrackpadInfo(left, device);
-        BuildStatusGroup(left, "Trackpad Status", device, LeftColumnWidth);
+        BuildTrackpadInfo(stage, device, TrackpadStageWidth);
+        BuildProfileGroup(stage, device, TrackpadStageWidth);
+        BuildStatusGroup(stage, "Connection", device, TrackpadStageWidth);
 
-        var one = Group(middle, "1 Finger Gestures", MainColumnWidth);
-        AddCheck(one, "OneFingerTap", "Tap to left click");
-        AddCheck(one, "IgnorePhysicalClick", "Ignore physical click");
-        AddSlider(one, "PointerSensitivity", "Sense:", 5, 100, "Slow", "Fast");
-        AddCheck(one, "InvertPointerX", "Reverse horizontal pointer direction");
-        AddCheck(one, "InvertPointerY", "Reverse vertical pointer direction");
+        AddModeStrip(inspector, "Customize", "Magic Trackpad", ["Gestures", "Pointer", "Clicks"], TrackpadInspectorWidth);
 
-        var two = Group(middle, "2 Finger Gestures", MainColumnWidth);
-        AddCheck(two, "TwoFingerTap", "Tap to right click");
-        AddCheck(two, "ScrollEnabled", "Scrolling");
-        AddCheck(two, "NoHorizontalScroll", "No horizontal scrolling", 28);
-        AddCheck(two, "NaturalScroll", "Inverse both scroll directions", 28);
-        AddCheck(two, "PinchZoomEnabled", "Pinch to zoom", 28);
-        AddCheck(two, "SmartZoomEnabled", "Smart zoom double tap", 28);
-        AddCheck(two, "RotateEnabled", "Rotate with two fingers", 28);
-        AddCheck(two, "TwoFingerSwipePagesEnabled", "Swipe left/right between pages", 28);
-        AddSlider(two, "ScrollSensitivity", "Speed:", 5, 200, "Slow", "Fast");
-        AddSlider(two, "PinchSensitivity", "Pinch:", 10, 200, "Light", "Strong");
-        AddActionChoice(two, "TwoFingerSwipeLeft", "Swipe left:", TwoFingerLeftActions(), 210);
-        AddActionChoice(two, "TwoFingerSwipeRight", "Swipe right:", TwoFingerRightActions(), 210);
-        AddActionChoice(two, "SmartZoomIn", "Smart zoom:", SmartZoomInActions(), 210);
-        AddActionChoice(two, "SmartZoomOut", "Zoom again:", SmartZoomOutActions(), 210);
-        AddActionChoice(two, "RotateClockwise", "Rotate CW:", RotateClockwiseActions(), 210);
-        AddActionChoice(two, "RotateCounterClockwise", "Rotate CCW:", RotateCounterClockwiseActions(), 210);
+        var pointer = Group(inspector, "Pointer", TrackpadInspectorWidth);
+        AddCheck(pointer, "PointerEnabled", "Move pointer");
+        AddSlider(pointer, "PointerSensitivity", "Sensitivity:", 5, 100, "Slow", "Fast");
+        AddCheck(pointer, "InvertPointerX", "Reverse horizontal pointer direction");
+        AddCheck(pointer, "InvertPointerY", "Reverse vertical pointer direction");
+        AddCheck(pointer, "SwapLeftRightButtons", "Swap left/right clicks");
 
-        var three = Group(middle, "3 Finger Gestures", MainColumnWidth);
-        AddCheck(three, "ThreeFingerTap", "Tap to middle click");
-        AddActionChoice(three, "ThreeFingerTapHotkey", "Tap action:", TapActions(), 210);
-        AddCheck(three, "ThreeFingerSwipesEnabled", "Enable 3 and 4 finger gestures");
-        AddActionChoice(three, "ThreeFingerSwipeLeft", "Swipe left:", DesktopLeftActions(), 210);
-        AddActionChoice(three, "ThreeFingerSwipeRight", "Swipe right:", DesktopRightActions(), 210);
-        AddActionChoice(three, "ThreeFingerSwipeUp", "Swipe up:", SwipeUpActions(), 210);
-        AddActionChoice(three, "ThreeFingerSwipeDown", "Swipe down:", SwipeDownActions(), 210);
+        var clicks = Group(inspector, "Click Assignment", TrackpadInspectorWidth);
+        AddCheck(clicks, "OneFingerTap", "1 finger tap");
+        AddChoice(clicks, "OneFingerTapButton", "1 finger action:", ButtonChoices(), 210);
+        AddCheck(clicks, "TwoFingerTap", "2 finger tap");
+        AddChoice(clicks, "TwoFingerTapButton", "2 finger action:", ButtonChoices(), 210);
+        AddCheck(clicks, "ThreeFingerTap", "3 finger tap");
+        AddChoice(clicks, "ThreeFingerTapButton", "3 finger action:", ButtonChoices(), 210);
+        AddCheck(clicks, "IgnorePhysicalClick", "Ignore physical click");
+        AddChoice(clicks, "PhysicalClickButton", "Physical click:", ButtonChoices(), 210);
+        AddChoice(clicks, "MultiFingerPhysicalClickButton", "Multi-finger click:", ButtonChoices(), 210);
+        AddSlider(clicks, "TapMaxSeconds", "Tap time:", 5, 50, "Quick", "Delayed");
+        AddSlider(clicks, "TapMaxDistance", "Tap distance:", 10, 250, "Tight", "Loose");
 
-        var four = Group(right, "4 Finger Gestures", MainColumnWidth);
-        AddActionChoice(four, "FourFingerSwipeLeft", "Swipe left:", DesktopLeftActions(), 210);
-        AddActionChoice(four, "FourFingerSwipeRight", "Swipe right:", DesktopRightActions(), 210);
-        AddActionChoice(four, "FourFingerSwipeUp", "Swipe up:", SwipeUpActions(), 210);
-        AddActionChoice(four, "FourFingerSwipeDown", "Swipe down:", SwipeDownActions(), 210);
-        AddCheck(four, "FourFingerPinchEnabled", "Pinch/spread for Launchpad and desktop");
-        AddCheck(four, "FourFingerTapEnabled", "Tap for Notification Center");
-        AddActionChoice(four, "FourFingerPinchIn", "Pinch in:", PinchInActions(), 210);
-        AddActionChoice(four, "FourFingerSpread", "Spread out:", SpreadActions(), 210);
-        AddActionChoice(four, "FourFingerTap", "Tap:", FourFingerTapActions(), 210);
-        AddSlider(four, "SwipeThreshold", "Left/right sense:", 100, 1400, "Short", "Long");
-        AddSlider(four, "SwipeVerticalThreshold", "Up/down sense:", 100, 1400, "Short", "Long");
+        var scroll = Group(inspector, "Scroll, Zoom, Rotate", TrackpadInspectorWidth);
+        AddCheck(scroll, "ScrollEnabled", "Scrolling");
+        AddCheck(scroll, "NoHorizontalScroll", "No horizontal scrolling", 28);
+        AddCheck(scroll, "NaturalScroll", "Natural scroll direction", 28);
+        AddSlider(scroll, "ScrollSensitivity", "Scroll speed:", 5, 200, "Slow", "Fast");
+        AddCheck(scroll, "PinchZoomEnabled", "Pinch to zoom");
+        AddSlider(scroll, "PinchSensitivity", "Pinch sensitivity:", 10, 200, "Light", "Strong");
+        AddCheck(scroll, "SmartZoomEnabled", "Smart zoom double tap");
+        AddActionChoice(scroll, "SmartZoomIn", "Smart zoom:", SmartZoomInActions(), 260);
+        AddActionChoice(scroll, "SmartZoomOut", "Zoom again:", SmartZoomOutActions(), 260);
+        AddCheck(scroll, "RotateEnabled", "Rotate with two fingers");
+        AddActionChoice(scroll, "RotateClockwise", "Rotate clockwise:", RotateClockwiseActions(), 260);
+        AddActionChoice(scroll, "RotateCounterClockwise", "Rotate counter:", RotateCounterClockwiseActions(), 260);
 
-        var mouse = Group(right, "Mouse Options", MainColumnWidth);
-        AddCheck(mouse, "PointerEnabled", "Move pointer");
-        AddCheck(mouse, "SwapLeftRightButtons", "Swap left/right clicks");
-        AddChoice(mouse, "PhysicalClickButton", "Physical click:", ButtonChoices(), 150);
-        AddChoice(mouse, "MultiFingerPhysicalClickButton", "Multi-finger click:", ButtonChoices(), 150);
+        var gestures = Group(inspector, "Gesture Assignment", TrackpadInspectorWidth);
+        AddCheck(gestures, "TwoFingerSwipePagesEnabled", "2 finger swipe between pages");
+        AddActionChoice(gestures, "TwoFingerSwipeLeft", "2 finger left:", TwoFingerLeftActions(), 260);
+        AddActionChoice(gestures, "TwoFingerSwipeRight", "2 finger right:", TwoFingerRightActions(), 260);
+        AddCheck(gestures, "ThreeFingerSwipesEnabled", "3 and 4 finger gestures");
+        AddActionChoice(gestures, "ThreeFingerTapHotkey", "3 finger tap:", TapActions(), 260);
+        AddActionChoice(gestures, "ThreeFingerSwipeLeft", "3 finger left:", DesktopLeftActions(), 260);
+        AddActionChoice(gestures, "ThreeFingerSwipeRight", "3 finger right:", DesktopRightActions(), 260);
+        AddActionChoice(gestures, "ThreeFingerSwipeUp", "3 finger up:", SwipeUpActions(), 260);
+        AddActionChoice(gestures, "ThreeFingerSwipeDown", "3 finger down:", SwipeDownActions(), 260);
+        AddActionChoice(gestures, "FourFingerSwipeLeft", "4 finger left:", DesktopLeftActions(), 260);
+        AddActionChoice(gestures, "FourFingerSwipeRight", "4 finger right:", DesktopRightActions(), 260);
+        AddActionChoice(gestures, "FourFingerSwipeUp", "4 finger up:", SwipeUpActions(), 260);
+        AddActionChoice(gestures, "FourFingerSwipeDown", "4 finger down:", SwipeDownActions(), 260);
+        AddCheck(gestures, "FourFingerPinchEnabled", "4 finger pinch and spread");
+        AddActionChoice(gestures, "FourFingerPinchIn", "Pinch in:", PinchInActions(), 260);
+        AddActionChoice(gestures, "FourFingerSpread", "Spread out:", SpreadActions(), 260);
+        AddCheck(gestures, "FourFingerTapEnabled", "4 finger tap");
+        AddActionChoice(gestures, "FourFingerTap", "Tap:", FourFingerTapActions(), 260);
+        AddSlider(gestures, "SwipeThreshold", "Left/right sense:", 100, 1400, "Short", "Long");
+        AddSlider(gestures, "SwipeVerticalThreshold", "Up/down sense:", 100, 1400, "Short", "Long");
 
-        var click = Group(right, "Click Options", MainColumnWidth);
-        AddSlider(click, "TapMaxSeconds", "Tap time:", 5, 50, "Quick", "Delayed");
-        AddSlider(click, "TapMaxDistance", "Tap distance:", 10, 250, "Tight", "Loose");
-        AddChoice(click, "OneFingerTapButton", "1 finger tap:", ButtonChoices(), 150);
-        AddChoice(click, "TwoFingerTapButton", "2 finger tap:", ButtonChoices(), 150);
-        AddChoice(click, "ThreeFingerTapButton", "3 finger tap:", ButtonChoices(), 150);
-
-        void SyncLayout() => FitTrackpadLayout(page, grid, left, middle, right);
+        void SyncLayout() => FitDeviceLayout(page, grid, stage, inspector, TrackpadStageWidth, TrackpadInspectorWidth, 0.38, 680, 1260);
         layoutSyncs.Add(SyncLayout);
         page.HandleCreated += (_, _) => SyncLayout();
         page.Resize += (_, _) => SyncLayout();
@@ -275,36 +276,35 @@ public sealed class SettingsForm : Form
     {
         var grid = new TableLayoutPanel
         {
-            Width = KeyboardLeftWidth + KeyboardRightWidth + 36,
-            Height = 920,
+            Width = KeyboardStageWidth + KeyboardInspectorWidth + DevicePageGutter,
+            Height = 1120,
             Anchor = AnchorStyles.Top | AnchorStyles.Left,
             ColumnCount = 2,
             RowCount = 1,
             BackColor = Shell,
         };
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, KeyboardLeftWidth));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, KeyboardRightWidth));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, KeyboardStageWidth));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, KeyboardInspectorWidth));
         page.Controls.Add(grid);
 
-        var left = Column();
-        var right = Column();
-        grid.Controls.Add(left, 0, 0);
-        grid.Controls.Add(right, 1, 0);
+        var stage = Column();
+        var inspector = Column();
+        grid.Controls.Add(stage, 0, 0);
+        grid.Controls.Add(inspector, 1, 0);
 
-        BuildKeyboardInfo(left, device);
-        BuildStatusGroup(left, "Keyboard Status", device, KeyboardLeftWidth);
+        BuildKeyboardInfo(stage, device, KeyboardStageWidth);
+        BuildProfileGroup(stage, device, KeyboardStageWidth);
+        BuildStatusGroup(stage, "Connection", device, KeyboardStageWidth);
 
-        var fkeys = Group(right, "F-Key Mappings", KeyboardRightWidth);
-        AddChoice(fkeys, "FKeyMode", "On F1 .. F12 keys pressed:", ["standard", "custom"], 360);
-        AddButtonRow(fkeys, "Show all F-key mappings", ShowAllKeyMappings);
+        AddModeStrip(inspector, "Customize", "Magic Keyboard", ["Keymap", "Function Row", "Modifiers"], KeyboardInspectorWidth);
 
-        var other = Group(right, "Other Key Mappings", KeyboardRightWidth);
-        AddCheck(other, "KeyboardEnabled", "Enable Apple keyboard support");
-        AddCheck(other, "KeyboardOnlyWhenAppleKeyboardPresent", "Only apply while an Apple keyboard is connected");
-        AddCheck(other, "KeyboardSwapExchangedKeys", "Swap exchanged modifier keys");
-        AddChoice(other, "KeyboardFnGlobe", "Globe / Fn key:", KeyActionChoices(), 160);
+        var keymap = Group(inspector, "Apple Keymap", KeyboardInspectorWidth);
+        AddCheck(keymap, "KeyboardEnabled", "Enable Apple keyboard support");
+        AddCheck(keymap, "KeyboardOnlyWhenAppleKeyboardPresent", "Only apply while an Apple keyboard is connected");
+        AddCheck(keymap, "KeyboardSwapExchangedKeys", "Swap exchanged modifier keys");
+        AddChoice(keymap, "KeyboardFnGlobe", "Globe / Fn key:", KeyActionChoices(), 220);
 
-        var modifiers = Group(right, "Modifier Key Mappings", KeyboardRightWidth);
+        var modifiers = Group(inspector, "Modifier Assignment", KeyboardInspectorWidth);
         var actions = KeyActionChoices();
         AddChoice(modifiers, "KeyboardCapsLock", "Caps Lock:", actions, 160);
         AddChoice(modifiers, "KeyboardLeftControl", "Left Control:", actions, 160);
@@ -314,7 +314,11 @@ public sealed class SettingsForm : Form
         AddChoice(modifiers, "KeyboardRightOption", "Right Option:", actions, 160);
         AddChoice(modifiers, "KeyboardRightControl", "Right Control:", actions, 160);
 
-        var extra = Group(right, "Extended Keybinds", KeyboardRightWidth);
+        var fkeys = Group(inspector, "Function Row", KeyboardInspectorWidth);
+        AddChoice(fkeys, "FKeyMode", "F1 .. F12 behavior:", ["standard", "custom"], 360);
+        AddButtonRow(fkeys, "Edit all F-key mappings", ShowAllKeyMappings);
+
+        var extra = Group(inspector, "Extended Keybinds", KeyboardInspectorWidth);
         AddHotkey(extra, "KeyboardF13", "F13");
         AddHotkey(extra, "KeyboardF14", "F14");
         AddHotkey(extra, "KeyboardF15", "F15");
@@ -323,20 +327,20 @@ public sealed class SettingsForm : Form
         AddHotkey(extra, "KeyboardF18", "F18");
         AddHotkey(extra, "KeyboardF19", "F19");
 
-        void SyncLayout() => FitKeyboardLayout(page, grid, left, right);
+        void SyncLayout() => FitDeviceLayout(page, grid, stage, inspector, KeyboardStageWidth, KeyboardInspectorWidth, 0.45, 760, 1320);
         layoutSyncs.Add(SyncLayout);
         page.HandleCreated += (_, _) => SyncLayout();
         page.Resize += (_, _) => SyncLayout();
     }
 
-    private void BuildTrackpadInfo(FlowLayoutPanel column, DeviceTabInfo device)
+    private void BuildTrackpadInfo(FlowLayoutPanel column, DeviceTabInfo device, int width)
     {
-        var group = Group(column, "Device Info", LeftColumnWidth);
+        var group = Group(column, "Device", width);
         AddDeviceHeader(group, device);
         group.Controls.Add(new TrackpadPreview
         {
-            Width = LeftColumnWidth - 48,
-            Height = 245,
+            Width = width - 48,
+            Height = 330,
             Margin = new Padding(8, 18, 8, 12),
         });
         var row = Row(width: ContentWidth(group) - 8);
@@ -349,17 +353,66 @@ public sealed class SettingsForm : Form
         AddProgress(group, device.Battery.Percent, BatteryText(device));
     }
 
-    private void BuildKeyboardInfo(FlowLayoutPanel column, DeviceTabInfo device)
+    private void BuildKeyboardInfo(FlowLayoutPanel column, DeviceTabInfo device, int width)
     {
-        var group = Group(column, "Device Info", KeyboardLeftWidth);
+        var group = Group(column, "Device", width);
         AddDeviceHeader(group, device);
         group.Controls.Add(new KeyboardPreview
         {
-            Width = KeyboardLeftWidth - 48,
+            Width = width - 48,
             Height = 380,
             Margin = new Padding(8, 16, 8, 16),
         });
         AddProgress(group, device.Battery.Percent, BatteryText(device));
+    }
+
+    private void BuildProfileGroup(FlowLayoutPanel column, DeviceTabInfo device, int width)
+    {
+        var group = Group(column, "Profile", width);
+        var row = Row(width: ContentWidth(group) - 8);
+        row.Controls.Add(new Label
+        {
+            Text = "Default",
+            Width = Math.Max(160, ContentWidth(group) / 2 - 16),
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = new Font(Font, FontStyle.Bold),
+            ForeColor = TextMain,
+        });
+        row.Controls.Add(new Label
+        {
+            Text = "Auto applies",
+            Width = Math.Max(150, ContentWidth(group) / 2 - 16),
+            TextAlign = ContentAlignment.MiddleRight,
+            ForeColor = Accent,
+        });
+        group.Controls.Add(row);
+
+        var linked = Row(width: ContentWidth(group) - 8);
+        linked.Controls.Add(new Label
+        {
+            Text = "Linked app",
+            Width = 112,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = TextMuted,
+        });
+        linked.Controls.Add(new Label
+        {
+            Text = device.Connected ? "Global" : "Waiting for device",
+            Width = Math.Max(220, ContentWidth(group) - 132),
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = TextMain,
+        });
+        group.Controls.Add(linked);
+    }
+
+    private static void AddModeStrip(FlowLayoutPanel column, string selected, string device, string[] modes, int width)
+    {
+        column.Controls.Add(new ModeStrip(selected, device, modes)
+        {
+            Width = width - 18,
+            Height = 74,
+            Margin = new Padding(4, 4, 8, 12),
+        });
     }
 
     private void BuildStatusGroup(FlowLayoutPanel column, string title, DeviceTabInfo device, int width)
@@ -367,7 +420,7 @@ public sealed class SettingsForm : Form
         var group = Group(column, title, width);
         group.Controls.Add(new Label
         {
-            Text = device.Connected ? "Ready" : "Not detected",
+            Text = device.Connected ? "Detected" : "Not detected",
             Width = ContentWidth(group) - 16,
             Height = 28,
             TextAlign = ContentAlignment.MiddleCenter,
@@ -478,6 +531,30 @@ public sealed class SettingsForm : Form
         ResizeColumn(right, rightWidth);
     }
 
+    private static void FitDeviceLayout(
+        TabPage page,
+        TableLayoutPanel grid,
+        FlowLayoutPanel stage,
+        FlowLayoutPanel inspector,
+        int minimumStageWidth,
+        int minimumInspectorWidth,
+        double stageRatio,
+        int stageMaxWidth,
+        int inspectorMaxWidth)
+    {
+        var minimum = minimumStageWidth + minimumInspectorWidth + DevicePageGutter;
+        var available = Math.Max(minimum, AvailablePageWidth(page) - 20);
+        var stageWidth = Math.Clamp((int)Math.Round(available * stageRatio), minimumStageWidth, stageMaxWidth);
+        var inspectorWidth = Math.Clamp(available - stageWidth - DevicePageGutter, minimumInspectorWidth, inspectorMaxWidth);
+
+        grid.Width = stageWidth + inspectorWidth + DevicePageGutter;
+        grid.Left = Math.Max(0, (page.ClientSize.Width - grid.Width) / 2);
+        grid.ColumnStyles[0].Width = stageWidth;
+        grid.ColumnStyles[1].Width = inspectorWidth;
+        ResizeColumn(stage, stageWidth);
+        ResizeColumn(inspector, inspectorWidth);
+    }
+
     private static int AvailablePageWidth(TabPage page)
     {
         var parentWidth = page.Parent?.ClientSize.Width - 8 ?? 0;
@@ -493,6 +570,10 @@ public sealed class SettingsForm : Form
             if (child is ThemedGroupBox box)
             {
                 ResizeGroup(box, width);
+            }
+            else if (child is ModeStrip strip)
+            {
+                strip.Width = Math.Max(260, width - 18);
             }
         }
     }
@@ -557,12 +638,12 @@ public sealed class SettingsForm : Form
         {
             labels[0].Width = Math.Clamp(labels[0].Width, 90, 125);
             button.Width = Math.Clamp(button.Width, 78, 94);
-            textBox.Width = Math.Max(120, available - labels[0].Width - button.Width - 14);
+            textBox.Width = Math.Min(680, Math.Max(120, available - labels[0].Width - button.Width - 14));
         }
         else if (combo is not null && labels.Length > 0)
         {
             labels[0].Width = Math.Min(205, Math.Max(120, available - 155));
-            combo.Width = Math.Max(120, available - labels[0].Width - 12);
+            combo.Width = Math.Min(420, Math.Max(120, available - labels[0].Width - 12));
         }
         else if (sliderPanel is not null && labels.Length > 0)
         {
@@ -846,9 +927,9 @@ public sealed class SettingsForm : Form
 
     private void AddButtonRow(FlowLayoutPanel parent, string text, Action action)
     {
-        var row = Row(40, ContentWidth(parent) - 8);
-        row.Controls.Add(ThemedLabel("", 165));
-        var button = ThemedButton(text, 220, 30);
+        var contentWidth = ContentWidth(parent);
+        var row = Row(42, contentWidth - 8);
+        var button = ThemedButton(text, Math.Min(280, Math.Max(190, contentWidth - 16)), 32);
         button.Click += (_, _) => action();
         row.Controls.Add(button);
         parent.Controls.Add(row);
@@ -1319,8 +1400,8 @@ public sealed class SettingsForm : Form
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         var bounds = Rectangle.Inflate(e.Bounds, -4, -5);
         using (var tabPath = Rounded(bounds, 7))
-        using (var background = new LinearGradientBrush(bounds, selected ? Color.White : ThemePalette.SurfaceAlt, selected ? ThemePalette.SurfaceRaised : Color.FromArgb(228, 233, 241), LinearGradientMode.Vertical))
-        using (var border = new Pen(selected ? Color.FromArgb(160, 170, 184) : ThemePalette.StrokeSoft))
+        using (var background = new SolidBrush(selected ? ThemePalette.Surface : ThemePalette.SurfaceAlt))
+        using (var border = new Pen(selected ? ThemePalette.Stroke : ThemePalette.StrokeSoft))
         {
             e.Graphics.FillPath(background, tabPath);
             e.Graphics.DrawPath(border, tabPath);
@@ -1562,20 +1643,20 @@ internal sealed record ActionOption(string Label, string Value)
 
 internal static class ThemePalette
 {
-    public static readonly Color Shell = Color.FromArgb(247, 249, 252);
+    public static readonly Color Shell = Color.FromArgb(248, 249, 251);
     public static readonly Color Surface = Color.FromArgb(255, 255, 255);
-    public static readonly Color SurfaceAlt = Color.FromArgb(238, 242, 247);
-    public static readonly Color SurfaceRaised = Color.FromArgb(251, 252, 254);
-    public static readonly Color Control = Color.FromArgb(255, 255, 255);
-    public static readonly Color ControlHover = Color.FromArgb(229, 242, 255);
-    public static readonly Color ControlPressed = Color.FromArgb(205, 228, 255);
-    public static readonly Color Stroke = Color.FromArgb(187, 197, 211);
-    public static readonly Color StrokeSoft = Color.FromArgb(218, 225, 235);
+    public static readonly Color SurfaceAlt = Color.FromArgb(243, 245, 248);
+    public static readonly Color SurfaceRaised = Color.FromArgb(252, 252, 254);
+    public static readonly Color Control = Color.FromArgb(252, 253, 255);
+    public static readonly Color ControlHover = Color.FromArgb(232, 243, 255);
+    public static readonly Color ControlPressed = Color.FromArgb(210, 231, 255);
+    public static readonly Color Stroke = Color.FromArgb(204, 211, 221);
+    public static readonly Color StrokeSoft = Color.FromArgb(226, 230, 236);
     public static readonly Color TextMain = Color.FromArgb(29, 29, 31);
     public static readonly Color TextMuted = Color.FromArgb(102, 109, 119);
-    public static readonly Color Accent = Color.FromArgb(0, 122, 255);
-    public static readonly Color AccentDim = Color.FromArgb(0, 92, 190);
-    public static readonly Color AccentSurface = Color.FromArgb(229, 242, 255);
+    public static readonly Color Accent = Color.FromArgb(0, 112, 243);
+    public static readonly Color AccentDim = Color.FromArgb(54, 148, 255);
+    public static readonly Color AccentSurface = Color.FromArgb(234, 244, 255);
 }
 
 internal enum DeviceKind
@@ -1609,18 +1690,33 @@ internal sealed class AppHeader : Control
 
         using var eyebrowFont = new Font("Segoe UI Semibold", 7.8F);
         using var titleFont = new Font("Segoe UI Semibold", 15F);
-        TextRenderer.DrawText(e.Graphics, "APPLE PERIPHERALS", eyebrowFont, new Rectangle(22, 10, 220, 18), ThemePalette.TextMuted, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        TextRenderer.DrawText(e.Graphics, "DEVICE STUDIO", eyebrowFont, new Rectangle(22, 10, 220, 18), ThemePalette.TextMuted, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
         TextRenderer.DrawText(e.Graphics, "Magic Trackpad + Keyboard", titleFont, new Rectangle(22, 28, 420, 28), ThemePalette.TextMain, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
         var x = Width - 24;
         foreach (var device in devices.GroupBy(item => item.Kind).Select(group => group.First()).Reverse())
         {
             var label = device.Kind == DeviceKind.Trackpad ? "Trackpad" : "Keyboard";
-            var width = device.Connected ? 166 : 194;
+            var width = device.Connected ? 176 : 194;
             x -= width;
             DrawStatusChip(e.Graphics, new Rectangle(x, 18, width, 30), label, device.Connected);
             x -= 10;
         }
+
+        x -= 156;
+        DrawProfileChip(e.Graphics, new Rectangle(Math.Max(470, x), 18, 146, 30));
+    }
+
+    private static void DrawProfileChip(Graphics graphics, Rectangle rect)
+    {
+        using var path = Rounded(rect, 8);
+        using var fill = new SolidBrush(ThemePalette.SurfaceAlt);
+        using var border = new Pen(ThemePalette.StrokeSoft);
+        graphics.FillPath(fill, path);
+        graphics.DrawPath(border, path);
+
+        using var labelFont = new Font("Segoe UI Semibold", 8.5F);
+        TextRenderer.DrawText(graphics, "Profile: Default", labelFont, new Rectangle(rect.Left + 13, rect.Top + 2, rect.Width - 24, rect.Height - 4), ThemePalette.TextMain, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
     }
 
     private static void DrawStatusChip(Graphics graphics, Rectangle rect, string label, bool connected)
@@ -1634,9 +1730,80 @@ internal sealed class AppHeader : Control
         using var dot = new SolidBrush(connected ? ThemePalette.Accent : Color.FromArgb(160, 167, 178));
         graphics.FillEllipse(dot, rect.Left + 12, rect.Top + 10, 9, 9);
 
-        var status = connected ? "Ready" : "Not detected";
+        var status = connected ? "Detected" : "Not detected";
         using var font = new Font("Segoe UI", 8.6F);
         TextRenderer.DrawText(graphics, $"{label} {status}", font, new Rectangle(rect.Left + 27, rect.Top + 2, rect.Width - 34, rect.Height - 4), ThemePalette.TextMain, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+    }
+
+    private static GraphicsPath Rounded(Rectangle rect, int radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = radius * 2;
+        path.AddArc(rect.Left, rect.Top, diameter, diameter, 180, 90);
+        path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90);
+        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+}
+
+internal sealed class ModeStrip : Control
+{
+    private readonly string selected;
+    private readonly string device;
+    private readonly string[] modes;
+
+    public ModeStrip(string selected, string device, string[] modes)
+    {
+        this.selected = selected;
+        this.device = device;
+        this.modes = modes;
+        DoubleBuffered = true;
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+        var rect = new Rectangle(0, 0, Width - 1, Height - 1);
+        using (var path = Rounded(rect, 8))
+        using (var fill = new SolidBrush(ThemePalette.Surface))
+        using (var border = new Pen(ThemePalette.StrokeSoft))
+        {
+            e.Graphics.FillPath(fill, path);
+            e.Graphics.DrawPath(border, path);
+        }
+
+        using var eyebrowFont = new Font("Segoe UI Semibold", 7.8F);
+        using var titleFont = new Font("Segoe UI Semibold", 13F);
+        TextRenderer.DrawText(e.Graphics, selected.ToUpperInvariant(), eyebrowFont, new Rectangle(18, 10, 170, 18), ThemePalette.TextMuted, TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+        TextRenderer.DrawText(e.Graphics, device, titleFont, new Rectangle(18, 29, 260, 28), ThemePalette.TextMain, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+        var x = Width - 18;
+        using var chipFont = new Font("Segoe UI", 8.6F);
+        for (var index = modes.Length - 1; index >= 0; index--)
+        {
+            var text = modes[index];
+            var size = TextRenderer.MeasureText(e.Graphics, text, chipFont, new Size(180, 24), TextFormatFlags.NoPadding);
+            var chipWidth = Math.Clamp(size.Width + 28, 86, 142);
+            x -= chipWidth;
+            DrawModeChip(e.Graphics, new Rectangle(x, 22, chipWidth, 30), text, index == 0);
+            x -= 8;
+        }
+    }
+
+    private static void DrawModeChip(Graphics graphics, Rectangle rect, string text, bool active)
+    {
+        using var path = Rounded(rect, 8);
+        using var fill = new SolidBrush(active ? ThemePalette.AccentSurface : ThemePalette.SurfaceAlt);
+        using var border = new Pen(active ? Color.FromArgb(173, 210, 250) : ThemePalette.StrokeSoft);
+        graphics.FillPath(fill, path);
+        graphics.DrawPath(border, path);
+
+        using var font = new Font("Segoe UI", 8.6F);
+        TextRenderer.DrawText(graphics, text, font, rect, active ? ThemePalette.TextMain : ThemePalette.TextMuted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
     }
 
     private static GraphicsPath Rounded(Rectangle rect, int radius)
@@ -1672,23 +1839,13 @@ internal sealed class ThemedGroupBox : GroupBox
         e.Graphics.FillPath(fill, panelPath);
         e.Graphics.DrawPath(border, panelPath);
 
-        var headerRect = new Rectangle(1, 1, Width - 2, 42);
-        using (var headerPath = TopRounded(headerRect, 8))
-        using (var headerFill = new LinearGradientBrush(headerRect, ThemePalette.SurfaceRaised, Color.FromArgb(244, 247, 251), LinearGradientMode.Vertical))
         using (var headerLine = new Pen(ThemePalette.StrokeSoft))
         {
-            e.Graphics.FillPath(headerFill, headerPath);
-            e.Graphics.DrawLine(headerLine, headerRect.Left, headerRect.Bottom, headerRect.Right, headerRect.Bottom);
-        }
-
-        using (var accent = new SolidBrush(ThemePalette.Accent))
-        using (var accentPath = Rounded(new Rectangle(14, 14, 4, 16), 2))
-        {
-            e.Graphics.FillPath(accent, accentPath);
+            e.Graphics.DrawLine(headerLine, 16, 43, Width - 16, 43);
         }
 
         using var titleFont = new Font(Font, FontStyle.Bold);
-        TextRenderer.DrawText(e.Graphics, title, titleFont, new Rectangle(26, 7, Width - 42, 30), ForeColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        TextRenderer.DrawText(e.Graphics, title, titleFont, new Rectangle(18, 8, Width - 36, 28), ForeColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
     }
 
     private static GraphicsPath Rounded(Rectangle rect, int radius)
@@ -1703,18 +1860,6 @@ internal sealed class ThemedGroupBox : GroupBox
         return path;
     }
 
-    private static GraphicsPath TopRounded(Rectangle rect, int radius)
-    {
-        var path = new GraphicsPath();
-        var diameter = radius * 2;
-        path.AddArc(rect.Left, rect.Top, diameter, diameter, 180, 90);
-        path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90);
-        path.AddLine(rect.Right, rect.Top + radius, rect.Right, rect.Bottom);
-        path.AddLine(rect.Right, rect.Bottom, rect.Left, rect.Bottom);
-        path.AddLine(rect.Left, rect.Bottom, rect.Left, rect.Top + radius);
-        path.CloseFigure();
-        return path;
-    }
 }
 
 internal sealed class LevelMeter : Control
@@ -1728,20 +1873,35 @@ internal sealed class LevelMeter : Control
         var bounds = new Rectangle(0, 0, Width - 1, Height - 1);
         using var background = new SolidBrush(ThemePalette.SurfaceAlt);
         using var border = new Pen(ThemePalette.StrokeSoft);
-        e.Graphics.FillRectangle(background, bounds);
-        e.Graphics.DrawRectangle(border, bounds);
+        using var meterPath = Rounded(bounds, 8);
+        e.Graphics.FillPath(background, meterPath);
+        e.Graphics.DrawPath(border, meterPath);
 
         var fillWidth = Value is int value
             ? Math.Max(0, (int)Math.Round((Width - 2) * Math.Clamp(value, 0, 100) / 100.0))
             : 0;
         if (fillWidth > 0)
         {
-            using var fill = new LinearGradientBrush(new Rectangle(1, 1, fillWidth, Height - 2), ThemePalette.Accent, ThemePalette.AccentDim, LinearGradientMode.Horizontal);
-            e.Graphics.FillRectangle(fill, 1, 1, fillWidth, Height - 2);
+            var fillRect = new Rectangle(1, 1, fillWidth, Height - 2);
+            using var fillPath = Rounded(fillRect, Math.Max(1, Math.Min(7, fillRect.Width / 2)));
+            using var fill = new LinearGradientBrush(fillRect, ThemePalette.Accent, ThemePalette.AccentDim, LinearGradientMode.Horizontal);
+            e.Graphics.FillPath(fill, fillPath);
         }
 
         var textColor = Value is int percentValue && percentValue > 45 ? Color.White : ThemePalette.TextMain;
         TextRenderer.DrawText(e.Graphics, Value is int percent ? $"{percent}%" : "--", Font, bounds, textColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+    }
+
+    private static GraphicsPath Rounded(Rectangle rect, int radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = radius * 2;
+        path.AddArc(rect.Left, rect.Top, diameter, diameter, 180, 90);
+        path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90);
+        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 }
 
