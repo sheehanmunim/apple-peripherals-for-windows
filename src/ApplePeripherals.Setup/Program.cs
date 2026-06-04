@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Win32;
 
 namespace ApplePeripherals.Setup;
@@ -194,6 +195,7 @@ internal static class Installer
         "ApplePeripheralsForWindows");
     private static readonly string AppDir = Path.Combine(InstallRoot, "app");
     private static readonly string InstalledSetupPath = Path.Combine(InstallRoot, "ApplePeripheralsSetup.exe");
+    private static readonly string InstallStatePath = Path.Combine(InstallRoot, "install-state.json");
     private static readonly string ConfigPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".magictrackpad-bridge.json");
@@ -284,6 +286,7 @@ internal static class Installer
 
         var rebootRequired = false;
         var keyboardDriverPending = false;
+        var keyboardDriverUnavailable = false;
         if (installDriver)
         {
             if (!IsAdministrator)
@@ -304,10 +307,16 @@ internal static class Installer
                     progress.Report(keyboardStatus);
                 }
             }
+            else
+            {
+                keyboardDriverUnavailable = true;
+                progress.Report("Magic Keyboard Globe/Fn driver is not bundled in this installer.");
+            }
         }
 
         progress.Report("Registering uninstaller...");
         RegisterUninstaller(appExe);
+        WriteInstallState();
 
         var messages = new List<string> { "Apple Peripherals was installed." };
         if (rebootRequired)
@@ -317,6 +326,10 @@ internal static class Installer
         if (keyboardDriverPending)
         {
             messages.Add("The Magic Keyboard Globe/Fn driver is not active yet; reconnect the keyboard or restart Windows, then check driver status in the app.");
+        }
+        if (keyboardDriverUnavailable)
+        {
+            messages.Add("This installer does not include the signed Magic Keyboard Globe/Fn driver package.");
         }
 
         var message = string.Join(" ", messages);
@@ -412,6 +425,16 @@ internal static class Installer
         key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
         key.SetValue("EstimatedSize", EstimateSizeKb(InstallRoot), RegistryValueKind.DWord);
         key.SetValue("URLInfoAbout", "https://github.com/sheehanmunim/apple-peripherals-for-windows");
+    }
+
+    private static void WriteInstallState()
+    {
+        var state = new InstallState(
+            Version,
+            HasBundledPrecisionTrackpadDriver: true,
+            HasBundledKeyboardDriver,
+            DateTimeOffset.Now);
+        File.WriteAllText(InstallStatePath, JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private static bool TryRegisterStartupTask(string appExe)
@@ -718,6 +741,12 @@ internal static class Installer
 }
 
 internal sealed record InstallResult(string Message, bool RebootRequired);
+
+internal sealed record InstallState(
+    string Version,
+    bool HasBundledPrecisionTrackpadDriver,
+    bool HasBundledKeyboardDriver,
+    DateTimeOffset InstalledAt);
 
 internal sealed class SetupOptions
 {

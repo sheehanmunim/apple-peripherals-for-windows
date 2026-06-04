@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using MagicTrackpad.Configuration;
 using MagicTrackpad.Hid;
 using MagicTrackpad.Input;
@@ -983,11 +984,41 @@ public sealed class SettingsForm : Form
 
         if (!status.Ready)
         {
+            var installState = InstalledBundleState();
+            var packageRow = Row(width: contentWidth - 8);
+            packageRow.Controls.Add(ThemedLabel("Keyboard package:", 205));
+            packageRow.Controls.Add(new Label
+            {
+                Text = installState.HasBundledKeyboardDriver switch
+                {
+                    true => "Bundled",
+                    false => "Not bundled",
+                    null => "Unknown",
+                },
+                Width = Math.Max(120, contentWidth - 225),
+                Height = 28,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = installState.HasBundledKeyboardDriver == true ? Accent : TextMuted,
+                BackColor = Color.Transparent,
+            });
+            parent.Controls.Add(packageRow);
+
             var actionRow = Row(42, contentWidth - 8);
             actionRow.Controls.Add(ThemedLabel("", 205));
-            var repair = ThemedButton("Repair drivers", Math.Min(180, Math.Max(150, contentWidth - 225)), 32);
-            repair.Click += (_, _) => LaunchDriverRepair();
-            actionRow.Controls.Add(repair);
+            var actionWidth = Math.Min(190, Math.Max(150, contentWidth - 225));
+            if (installState.HasBundledKeyboardDriver == true)
+            {
+                var repair = ThemedButton("Repair keyboard driver", actionWidth, 32);
+                repair.Click += (_, _) => LaunchDriverRepair();
+                actionRow.Controls.Add(repair);
+            }
+            else
+            {
+                var docs = ThemedButton("Driver guide", actionWidth, 32);
+                docs.Click += (_, _) => OpenKeyboardDriverGuide();
+                actionRow.Controls.Add(docs);
+            }
+
             parent.Controls.Add(actionRow);
         }
     }
@@ -1050,6 +1081,48 @@ public sealed class SettingsForm : Form
             "ApplePeripheralsForWindows",
             "ApplePeripheralsSetup.exe");
     }
+
+    private static InstallBundleState InstalledBundleState()
+    {
+        var path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ApplePeripheralsForWindows",
+            "install-state.json");
+        if (!File.Exists(path))
+        {
+            return new InstallBundleState(null);
+        }
+
+        try
+        {
+            var state = JsonSerializer.Deserialize<InstallBundleState>(
+                File.ReadAllText(path),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return state ?? new InstallBundleState(null);
+        }
+        catch
+        {
+            return new InstallBundleState(null);
+        }
+    }
+
+    private void OpenKeyboardDriverGuide()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://github.com/sheehanmunim/apple-peripherals-for-windows/blob/main/docs/keyboard-filter-driver.md",
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Apple Peripherals", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private sealed record InstallBundleState(bool? HasBundledKeyboardDriver);
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int attributeValue, int attributeSize);

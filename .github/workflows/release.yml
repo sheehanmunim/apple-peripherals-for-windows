@@ -115,7 +115,8 @@ jobs:
             "- Requests Administrator approval because the installer adds bundled Windows drivers.",
             "- Bundles the Microsoft-signed Magic Trackpad Precision Touchpad driver.",
             "- Includes current Magic Keyboard modifier remapping, F-key mappings, and settings UI.",
-            "- Adds a Magic Keyboard driver repair action from the keyboard status panel."
+            "- Adds a Magic Keyboard driver repair action from the keyboard status panel.",
+            "- Records whether the installer bundles the signed keyboard filter so the app can show the right Globe/Fn action."
           )
           if ($hasKeyboardDriver) {
             $notes += "- Bundles a trusted signed Apple Keyboard Filter driver so Globe/Fn can map through the app setting."
