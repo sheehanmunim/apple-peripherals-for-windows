@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "magictrackpad-bridge"
 version = "0.1.0"
-description = "User-mode Windows bridge for Apple Magic Trackpad Bluetooth multitouch gestures."
+description = "Windows settings app and background bridge for Apple Magic Trackpad Bluetooth multitouch gestures."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-2.0-or-later" }
@@ -26,4 +26,3 @@ dependencies = []
 
 [project.scripts]
 magictrackpad = "magictrackpad_bridge.cli:main"
-

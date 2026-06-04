@@ -5,7 +5,8 @@ import logging
 from pathlib import Path
 import re
 import sys
-from threading import Timer
+from threading import Event, Thread, Timer
+import time
 
 from .config import DEFAULT_CONFIG_PATH, AppConfig, load_config, write_default_config
 from .devices import find_magic_trackpads, multitouch_feature_report, send_feature_report
@@ -62,6 +63,10 @@ def build_parser() -> argparse.ArgumentParser:
     config_parser.add_argument("--path", type=Path, default=DEFAULT_CONFIG_PATH)
     config_parser.set_defaults(func=write_config_command)
 
+    settings_parser = subparsers.add_parser("settings", help="Open the Windows settings app.")
+    settings_parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH, help="Path to JSON config.")
+    settings_parser.set_defaults(func=settings_command)
+
     return parser
 
 
@@ -72,6 +77,7 @@ def run_command(args: argparse.Namespace) -> int:
     raw_logger = RawReportLogger(config) if config.log_raw_reports else None
     announced_keys: set[str] = set()
     enabled_keys: set[str] = set()
+    stop_event = Event()
 
     def on_devices_changed(devices):
         groups = _group_trackpads(find_magic_trackpads(devices))
@@ -96,6 +102,16 @@ def run_command(args: argparse.Namespace) -> int:
                     enabled_keys.add(key)
                 LOGGER.info("Multitouch enable report %s for %s.", "sent" if ok else "failed", device.product_name)
 
+    def reenable_loop():
+        while not stop_event.wait(config.reenable_interval_seconds):
+            if not config.enable_multitouch_on_start:
+                continue
+            groups = _group_trackpads(find_magic_trackpads(enumerate_raw_input_devices()))
+            for key, trackpads in groups.items():
+                if _enable_any_collection(trackpads):
+                    enabled_keys.add(key)
+                    LOGGER.debug("Refreshed multitouch mode for %s.", trackpads[0].product_name)
+
     def on_report(device, report: bytes):
         if raw_logger:
             raw_logger.write(device, report)
@@ -110,6 +126,8 @@ def run_command(args: argparse.Namespace) -> int:
 
     LOGGER.info("Starting Magic Trackpad bridge. Press Ctrl+C to stop.")
     bridge = RawInputBridge(on_report=on_report, on_devices_changed=on_devices_changed)
+    worker = Thread(target=reenable_loop, name="multitouch-reenable", daemon=True)
+    worker.start()
     timer = None
     if args.seconds:
         timer = Timer(args.seconds, bridge.stop)
@@ -118,6 +136,7 @@ def run_command(args: argparse.Namespace) -> int:
     try:
         bridge.run()
     finally:
+        stop_event.set()
         if timer:
             timer.cancel()
     return 0
@@ -157,6 +176,13 @@ def enable_command(args: argparse.Namespace) -> int:
 def write_config_command(args: argparse.Namespace) -> int:
     path = write_default_config(args.path)
     print(f"Wrote {path}")
+    return 0
+
+
+def settings_command(args: argparse.Namespace) -> int:
+    from .settings_app import run_settings_app
+
+    run_settings_app(args.config)
     return 0
 
 

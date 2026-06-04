@@ -1,8 +1,8 @@
 # Apple Peripherals for Windows
 
-Experimental Windows bridge for Apple Magic Trackpad multitouch over Bluetooth.
+Windows settings app and background bridge for Apple Magic Trackpad multitouch over Bluetooth.
 
-Windows can pair the Magic Trackpad as a Bluetooth HID pointer, but the useful trackpad behavior is often missing: two-finger scroll, tap-to-click, secondary click, pinch zoom, and three-finger gestures. This repo adds a user-mode bridge that reads Apple multitouch HID reports and injects Windows input events.
+Windows can pair the Magic Trackpad as a Bluetooth HID pointer, but the useful trackpad behavior is often missing: two-finger scroll, tap-to-click, secondary click, pinch zoom, and multi-finger shortcuts. This repo adds a Windows settings app plus a background bridge that reads Apple multitouch HID reports and applies the gestures you configure.
 
 ## What Works
 
@@ -11,18 +11,25 @@ Windows can pair the Magic Trackpad as a Bluetooth HID pointer, but the useful t
 - Sends the Apple multitouch feature report when the HID collection is openable from user mode.
 - Parses Apple 9-byte multitouch reports.
 - Injects one-finger pointer movement, physical click, tap-to-click, two-finger scroll, horizontal scroll, two-finger secondary click, pinch-to-zoom through Ctrl+wheel, three-finger desktop swipes, and three-finger middle click.
-- Installs as a per-user scheduled task.
+- Lets you change pointer sensitivity, pointer direction, scroll direction, scroll speed, tap settings, pinch settings, swipe thresholds, and swipe keybinds.
+- Installs a Start Menu settings app and a per-user background task.
+- Keeps Bluetooth multitouch mode refreshed after reconnects and wake events.
 
-## Current Limits
+## Settings App
 
-This is not yet a signed kernel driver. Because of that:
+Open the settings app from the Start Menu after installing, or run it from the repo:
 
-- Windows may deny user-mode access to `HidD_SetFeature` on some Bluetooth stacks.
-- Gestures are synthesized with `SendInput`, not presented as a native Precision Touchpad.
-- Pinch and three-finger gestures are approximations using standard Windows keyboard and mouse events.
-- Real public-driver distribution requires Microsoft driver signing.
+```powershell
+python -m magictrackpad_bridge settings
+```
 
-See [docs/driver-roadmap.md](docs/driver-roadmap.md) for the path to a native signed driver.
+The app has tabs for:
+
+- Pointer: enable movement, sensitivity, and X/Y direction.
+- Scroll: natural scrolling, speed, and horizontal scrolling.
+- Clicks: tap-to-click, two-finger right click, and three-finger middle click.
+- Gestures: pinch zoom, swipe thresholds, and three-/four-finger swipe keybinds.
+- Service: automatic multitouch refresh, raw report logging, and bridge controls.
 
 ## Quick Start
 
@@ -32,6 +39,7 @@ Use PowerShell from the repo root:
 python -m magictrackpad_bridge list
 python -m magictrackpad_bridge enable
 python -m magictrackpad_bridge run
+python -m magictrackpad_bridge settings
 ```
 
 Short smoke test:
@@ -66,13 +74,14 @@ The default path is:
 %USERPROFILE%\.magictrackpad-bridge.json
 ```
 
-Use `config.example.json` as the editable reference. The most useful options are:
+Use the settings app for normal changes. `config.example.json` is also available as an editable reference. The most useful options are:
 
 - `pointer_sensitivity`
 - `natural_scroll`
 - `scroll_sensitivity`
 - `pinch_zoom_enabled`
 - `three_finger_swipes_enabled`
+- `gestures.hotkeys`
 - `log_raw_reports`
 
 ## Test

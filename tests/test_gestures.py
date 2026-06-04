@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 
 from magictrackpad_bridge.config import GestureConfig
 from magictrackpad_bridge.gestures import GestureEngine
@@ -61,7 +62,17 @@ class GestureEngineTests(unittest.TestCase):
 
         self.assertEqual(injector.events, [("hotkey", (VK_LWIN, VK_CONTROL, VK_LEFT))])
 
+    def test_three_finger_swipe_uses_configured_hotkey(self) -> None:
+        injector = DryRunInjector()
+        config = GestureConfig(swipe_threshold=100)
+        config = replace(config, hotkeys=replace(config.hotkeys, three_finger_swipe_left="Alt+Left"))
+        engine = GestureEngine(injector, config)
+
+        engine.process_frame(frame([touch(1, 500, 0), touch(2, 600, 0), touch(3, 700, 0)]), now=1.00)
+        engine.process_frame(frame([touch(1, 300, 0), touch(2, 400, 0), touch(3, 500, 0)]), now=1.10)
+
+        self.assertEqual(injector.events, [("hotkey", (0x12, VK_LEFT))])
+
 
 if __name__ == "__main__":
     unittest.main()
-

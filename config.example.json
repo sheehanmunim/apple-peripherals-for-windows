@@ -18,10 +18,20 @@
     "pinch_threshold": 14.0,
     "three_finger_swipes_enabled": true,
     "swipe_threshold": 650.0,
-    "swipe_vertical_threshold": 540.0
+    "swipe_vertical_threshold": 540.0,
+    "hotkeys": {
+      "three_finger_swipe_left": "Win+Ctrl+Left",
+      "three_finger_swipe_right": "Win+Ctrl+Right",
+      "three_finger_swipe_up": "Win+Tab",
+      "three_finger_swipe_down": "Win+D",
+      "four_finger_swipe_left": "Win+Ctrl+Left",
+      "four_finger_swipe_right": "Win+Ctrl+Right",
+      "four_finger_swipe_up": "Win+Tab",
+      "four_finger_swipe_down": "Win+D"
+    }
   },
   "enable_multitouch_on_start": true,
+  "reenable_interval_seconds": 15.0,
   "log_raw_reports": false,
   "raw_log_path": "logs/raw-reports.hex"
 }
-

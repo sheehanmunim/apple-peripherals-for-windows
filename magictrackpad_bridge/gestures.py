@@ -6,14 +6,9 @@ import time
 
 from .config import GestureConfig
 from .hid_reports import TrackpadFrame, Touch, centroid, distance_between
+from .hotkeys import parse_hotkey
 from .input_injector import (
     InputInjector,
-    VK_CONTROL,
-    VK_D,
-    VK_LEFT,
-    VK_LWIN,
-    VK_RIGHT,
-    VK_TAB,
 )
 
 
@@ -172,23 +167,37 @@ class GestureEngine:
             return
 
         if abs(total_dx) > self.config.swipe_threshold and abs(total_dx) > abs(total_dy):
-            if total_dx > 0:
-                self.injector.hotkey([VK_LWIN, VK_CONTROL, VK_RIGHT])
-            else:
-                self.injector.hotkey([VK_LWIN, VK_CONTROL, VK_LEFT])
+            action = self._swipe_hotkey(session.count, horizontal=total_dx)
+            if action:
+                self._send_configured_hotkey(action)
             session.swipe_fired = True
             return
 
         if abs(total_dy) > self.config.swipe_vertical_threshold and abs(total_dy) > abs(total_dx):
-            if total_dy < 0:
-                self.injector.hotkey([VK_LWIN, VK_TAB])
-            else:
-                self.injector.hotkey([VK_LWIN, VK_D])
+            action = self._swipe_hotkey(session.count, vertical=total_dy)
+            if action:
+                self._send_configured_hotkey(action)
             session.swipe_fired = True
+
+    def _swipe_hotkey(self, count: int, horizontal: float = 0, vertical: float = 0) -> str:
+        hotkeys = self.config.hotkeys
+        prefix = "four_finger" if count >= 4 else "three_finger"
+        if horizontal > 0:
+            return getattr(hotkeys, f"{prefix}_swipe_right")
+        if horizontal < 0:
+            return getattr(hotkeys, f"{prefix}_swipe_left")
+        if vertical < 0:
+            return getattr(hotkeys, f"{prefix}_swipe_up")
+        return getattr(hotkeys, f"{prefix}_swipe_down")
+
+    def _send_configured_hotkey(self, value: str) -> None:
+        try:
+            self.injector.hotkey(parse_hotkey(value))
+        except ValueError:
+            return
 
 
 def _two_touch_distance(active: tuple[Touch, ...]) -> float | None:
     if len(active) != 2:
         return None
     return distance_between(active[0], active[1])
-

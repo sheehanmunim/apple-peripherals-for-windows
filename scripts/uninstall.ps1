@@ -14,5 +14,9 @@ if (Test-Path $InstallDir) {
     Remove-Item -LiteralPath $InstallDir -Recurse -Force
 }
 
-Write-Host "Uninstalled MagicTrackpadBridge."
+$StartMenuDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Magic Trackpad Bridge"
+if (Test-Path $StartMenuDir) {
+    Remove-Item -LiteralPath $StartMenuDir -Recurse -Force
+}
 
+Write-Host "Uninstalled MagicTrackpadBridge."

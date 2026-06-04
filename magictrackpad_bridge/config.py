@@ -10,6 +10,18 @@ DEFAULT_CONFIG_PATH = Path.home() / ".magictrackpad-bridge.json"
 
 
 @dataclass(frozen=True)
+class HotkeyConfig:
+    three_finger_swipe_left: str = "Win+Ctrl+Left"
+    three_finger_swipe_right: str = "Win+Ctrl+Right"
+    three_finger_swipe_up: str = "Win+Tab"
+    three_finger_swipe_down: str = "Win+D"
+    four_finger_swipe_left: str = "Win+Ctrl+Left"
+    four_finger_swipe_right: str = "Win+Ctrl+Right"
+    four_finger_swipe_up: str = "Win+Tab"
+    four_finger_swipe_down: str = "Win+D"
+
+
+@dataclass(frozen=True)
 class GestureConfig:
     pointer_enabled: bool = True
     pointer_sensitivity: float = 0.18
@@ -30,12 +42,14 @@ class GestureConfig:
     three_finger_swipes_enabled: bool = True
     swipe_threshold: float = 650.0
     swipe_vertical_threshold: float = 540.0
+    hotkeys: HotkeyConfig = HotkeyConfig()
 
 
 @dataclass(frozen=True)
 class AppConfig:
     gestures: GestureConfig = GestureConfig()
     enable_multitouch_on_start: bool = True
+    reenable_interval_seconds: float = 15.0
     log_raw_reports: bool = False
     raw_log_path: str = "logs/raw-reports.hex"
 
@@ -68,7 +82,8 @@ def _build_dataclass(cls: type[Any], data: dict[str, Any]) -> Any:
         field_type = allowed[key].type
         if key == "gestures" and isinstance(value, dict):
             values[key] = _build_dataclass(GestureConfig, value)
+        elif key == "hotkeys" and isinstance(value, dict):
+            values[key] = _build_dataclass(HotkeyConfig, value)
         else:
             values[key] = value
     return cls(**values)
-
