@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "magictrackpad-bridge"
+version = "0.1.0"
+description = "User-mode Windows bridge for Apple Magic Trackpad Bluetooth multitouch gestures."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-2.0-or-later" }
+authors = [
+  { name = "Apple Peripherals for Windows contributors" }
+]
+keywords = ["apple", "magic-trackpad", "windows", "bluetooth", "hid", "gestures"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Win32 (MS Windows)",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Hardware :: Hardware Drivers",
+]
+dependencies = []
+
+[project.scripts]
+magictrackpad = "magictrackpad_bridge.cli:main"
+

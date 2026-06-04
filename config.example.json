@@ -1,0 +1,27 @@
+{
+  "gestures": {
+    "pointer_enabled": true,
+    "pointer_sensitivity": 0.18,
+    "invert_pointer_x": false,
+    "invert_pointer_y": false,
+    "scroll_enabled": true,
+    "natural_scroll": true,
+    "scroll_sensitivity": 0.42,
+    "horizontal_scroll_enabled": true,
+    "tap_to_click": true,
+    "tap_max_seconds": 0.18,
+    "tap_max_distance": 95.0,
+    "secondary_click_enabled": true,
+    "three_finger_middle_click": true,
+    "pinch_zoom_enabled": true,
+    "pinch_sensitivity": 0.55,
+    "pinch_threshold": 14.0,
+    "three_finger_swipes_enabled": true,
+    "swipe_threshold": 650.0,
+    "swipe_vertical_threshold": 540.0
+  },
+  "enable_multitouch_on_start": true,
+  "log_raw_reports": false,
+  "raw_log_path": "logs/raw-reports.hex"
+}
+
