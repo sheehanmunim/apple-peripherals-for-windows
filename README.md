@@ -252,6 +252,18 @@ If this PC does not have Visual Studio Build Tools and WDK installed, point the 
 powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -DriverDir .\artifacts\keyboard-filter\AMD64 -SkipBuild -EnableTestSigning -Elevate
 ```
 
+Or have the helper download the latest successful CI driver artifact for this CPU architecture first:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -DownloadLatestArtifact -SkipBuild -EnableTestSigning -Elevate
+```
+
+Check the download path without changing Windows driver or boot settings:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -DownloadLatestArtifact -DownloadOnly
+```
+
 That helper creates a local test code-signing certificate, trusts it for this machine, signs a temporary copy of the local driver catalog, enables Windows test-signing mode, and installs the filter. It is not a public-user install path; reboot after enabling test-signing, then rerun the health check.
 
 Public installers must bundle a trusted signed keyboard driver package. See [docs/keyboard-filter-driver.md](docs/keyboard-filter-driver.md) and [docs/release.md](docs/release.md).

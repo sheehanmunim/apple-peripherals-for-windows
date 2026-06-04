@@ -3,6 +3,11 @@ param(
     [string]$Platform = "current",
     [string]$DriverDir = "",
     [string]$DriverZip = "",
+    [switch]$DownloadLatestArtifact,
+    [string]$Repository = "sheehanmunim/apple-peripherals-for-windows",
+    [string]$RunId = "",
+    [string]$ArtifactRoot = "",
+    [switch]$DownloadOnly,
     [switch]$SkipBuild,
     [string]$CertificateSubject = "CN=Apple Peripherals for Windows Test Driver",
     [switch]$EnableTestSigning,
@@ -42,6 +47,29 @@ function Start-ElevatedSelf {
     if (![string]::IsNullOrWhiteSpace($DriverZip)) {
         $arguments.Add("-DriverZip")
         $arguments.Add((Quote-ProcessArgument $DriverZip))
+    }
+
+    if ($DownloadLatestArtifact) {
+        $arguments.Add("-DownloadLatestArtifact")
+    }
+
+    if (![string]::IsNullOrWhiteSpace($Repository)) {
+        $arguments.Add("-Repository")
+        $arguments.Add((Quote-ProcessArgument $Repository))
+    }
+
+    if (![string]::IsNullOrWhiteSpace($RunId)) {
+        $arguments.Add("-RunId")
+        $arguments.Add((Quote-ProcessArgument $RunId))
+    }
+
+    if (![string]::IsNullOrWhiteSpace($ArtifactRoot)) {
+        $arguments.Add("-ArtifactRoot")
+        $arguments.Add((Quote-ProcessArgument $ArtifactRoot))
+    }
+
+    if ($DownloadOnly) {
+        $arguments.Add("-DownloadOnly")
     }
 
     if ($SkipBuild) {
@@ -152,6 +180,81 @@ function Expand-DriverZip {
 
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
     Expand-Archive -LiteralPath $ZipPath -DestinationPath $Destination -Force
+}
+
+function Get-LatestKeyboardDriverRunId {
+    param([string]$RepositoryName)
+
+    if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
+        throw "GitHub CLI 'gh' is required for -DownloadLatestArtifact. Install gh or pass -DriverDir/-DriverZip."
+    }
+
+    $json = & gh run list --repo $RepositoryName --workflow keyboard-driver.yml --status success --limit 1 --json databaseId 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "gh run list failed: $json"
+    }
+
+    $runs = $json | ConvertFrom-Json
+    if (!$runs -or $runs.Count -lt 1) {
+        throw "No successful keyboard-driver workflow run was found in $RepositoryName."
+    }
+
+    return [string]$runs[0].databaseId
+}
+
+function Resolve-GitHubDriverArtifact {
+    param(
+        [string]$ArchitectureFolder,
+        [string]$RepositoryName,
+        [string]$WorkflowRunId,
+        [string]$Root
+    )
+
+    if (![string]::IsNullOrWhiteSpace($DriverDir) -or ![string]::IsNullOrWhiteSpace($DriverZip)) {
+        return $DriverDir
+    }
+
+    if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
+        throw "GitHub CLI 'gh' is required for -DownloadLatestArtifact. Install gh or pass -DriverDir/-DriverZip."
+    }
+
+    $artifactName = if ($ArchitectureFolder -eq "ARM64") {
+        "AppleKeyboardFilterDriver-ARM64-unsigned"
+    }
+    else {
+        "AppleKeyboardFilterDriver-AMD64-unsigned"
+    }
+
+    $run = if (![string]::IsNullOrWhiteSpace($WorkflowRunId)) {
+        $WorkflowRunId
+    }
+    else {
+        Get-LatestKeyboardDriverRunId -RepositoryName $RepositoryName
+    }
+
+    $downloadRoot = if ([string]::IsNullOrWhiteSpace($Root)) {
+        Join-Path $RepoRoot "artifacts\keyboard-filter-latest"
+    }
+    elseif ([IO.Path]::IsPathRooted($Root)) {
+        $Root
+    }
+    else {
+        Join-Path $RepoRoot $Root
+    }
+
+    $artifactDir = Join-Path $downloadRoot $artifactName
+    if (Test-Path $artifactDir) {
+        Remove-Item -LiteralPath $artifactDir -Recurse -Force
+    }
+
+    New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
+    Write-Host "Downloading $artifactName from $RepositoryName workflow run $run..."
+    & gh run download $run --repo $RepositoryName --name $artifactName --dir $artifactDir
+    if ($LASTEXITCODE -ne 0) {
+        throw "gh run download failed with exit code $LASTEXITCODE."
+    }
+
+    return Find-ArchitectureDir -Root $artifactDir -ArchitectureFolder $ArchitectureFolder
 }
 
 function Find-Tool {
@@ -301,6 +404,23 @@ function Trust-CertificateForLocalMachine {
     }
 }
 
+$effectivePlatform = Get-EffectivePlatform
+$architectureFolder = if ($effectivePlatform -eq "ARM64") { "ARM64" } else { "AMD64" }
+
+if ($DownloadLatestArtifact -and [string]::IsNullOrWhiteSpace($DriverDir) -and [string]::IsNullOrWhiteSpace($DriverZip)) {
+    $DriverDir = Resolve-GitHubDriverArtifact -ArchitectureFolder $architectureFolder -RepositoryName $Repository -WorkflowRunId $RunId -Root $ArtifactRoot
+    $SkipBuild = $true
+}
+
+if ($DownloadOnly) {
+    if ([string]::IsNullOrWhiteSpace($DriverDir)) {
+        throw "-DownloadOnly requires -DownloadLatestArtifact or -DriverDir."
+    }
+
+    Write-Host "Driver package ready: $DriverDir"
+    exit 0
+}
+
 if (!(Test-Administrator)) {
     if ($Elevate) {
         Start-ElevatedSelf
@@ -309,8 +429,6 @@ if (!(Test-Administrator)) {
     throw "The development keyboard filter installer must run from elevated PowerShell."
 }
 
-$effectivePlatform = Get-EffectivePlatform
-$architectureFolder = if ($effectivePlatform -eq "ARM64") { "ARM64" } else { "AMD64" }
 $rebootRequired = Enable-TestSigningIfRequested
 $certificate = Get-OrCreateCodeSigningCertificate
 Trust-CertificateForLocalMachine $certificate
