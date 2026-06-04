@@ -19,4 +19,9 @@ if (Test-Path $StartMenuDir) {
     Remove-Item -LiteralPath $StartMenuDir -Recurse -Force
 }
 
+$StartupShortcut = Join-Path ([Environment]::GetFolderPath("Startup")) "Magic Trackpad Bridge.lnk"
+if (Test-Path $StartupShortcut) {
+    Remove-Item -LiteralPath $StartupShortcut -Force
+}
+
 Write-Host "Uninstalled MagicTrackpadBridge."
