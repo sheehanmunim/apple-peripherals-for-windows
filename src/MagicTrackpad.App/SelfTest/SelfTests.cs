@@ -29,6 +29,7 @@ internal static class SelfTests
         var parsed = Hotkeys.Parse("Win+Ctrl+Left");
         Require(parsed.SequenceEqual(new ushort[] { 0x5B, 0x11, 0x25 }));
         Require(Hotkeys.Normalize("windows-control-left") == "Win+Ctrl+Left");
+        Require(Hotkeys.Parse("unchanged").Count == 0);
     }
 
     private static void TestReports()
@@ -68,11 +69,17 @@ internal static class SelfTests
         var path = Path.Combine(Path.GetTempPath(), "magic-trackpad-native-self-test.json");
         var config = new AppConfig();
         config.Gestures.PointerSensitivity = 0.73;
+        config.Gestures.SwapLeftRightButtons = true;
+        config.Keyboard.FKeyMode = "custom";
+        config.Keyboard.F1 = "Win+H";
         config.Keyboard.F13 = "Ctrl+Alt+Delete";
         ConfigStore.Save(path, config);
         var loaded = ConfigStore.Load(path);
         File.Delete(path);
         Require(Math.Abs(loaded.Gestures.PointerSensitivity - 0.73) < 0.001);
+        Require(loaded.Gestures.SwapLeftRightButtons);
+        Require(loaded.Keyboard.FKeyMode == "custom");
+        Require(loaded.Keyboard.F1 == "Win+H");
         Require(loaded.Keyboard.F13 == "Ctrl+Alt+Delete");
     }
 

@@ -49,14 +49,14 @@ public sealed class GestureEngine
                 : config.PhysicalClickButton);
             if (activeButton != "none")
             {
-                injector.ButtonDown(activeButton);
+                injector.ButtonDown(EffectiveButton(activeButton));
             }
         }
         else if (activeButton != null)
         {
             if (activeButton != "none")
             {
-                injector.ButtonUp(activeButton);
+                injector.ButtonUp(EffectiveButton(activeButton));
             }
             activeButton = null;
         }
@@ -273,8 +273,20 @@ public sealed class GestureEngine
         button = ButtonOrNone(button);
         if (button != "none")
         {
-            injector.Click(button);
+            injector.Click(EffectiveButton(button));
         }
+    }
+
+    private string EffectiveButton(string button)
+    {
+        return config.SwapLeftRightButtons
+            ? button switch
+            {
+                "left" => "right",
+                "right" => "left",
+                _ => button,
+            }
+            : button;
     }
 
     private static string ButtonOrNone(string button) =>

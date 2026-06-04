@@ -8,6 +8,7 @@ Windows can pair Apple peripherals as Bluetooth HID devices, but many of the use
 
 - Built with C# on .NET 8 and WinForms.
 - Installs `MagicTrackpad.exe` as one per-user background bridge for keyboard and trackpad support.
+- Uses a dense device-tab settings UI with separate Magic Trackpad and Magic Keyboard pages.
 - Adds Start Menu shortcuts for settings and manual bridge launch.
 - Registers a per-user scheduled task when Windows allows it, and falls back to a Startup shortcut when task registration is blocked.
 - Keeps Bluetooth multitouch mode refreshed after reconnects and wake events.
@@ -21,7 +22,7 @@ The settings app lets you configure:
 Keyboard:
 
 - Command, Control, Option, and Caps Lock remaps.
-- F13 through F19 keybinds.
+- F1 through F19 keybinds, including a full F-key mapping dialog.
 - Whether keyboard remaps are active only while an Apple keyboard is connected.
 
 Trackpad:

@@ -10,7 +10,7 @@ public static class Hotkeys
         foreach (var rawPart in value.Replace("-", "+", StringComparison.Ordinal).Split('+'))
         {
             var token = rawPart.Trim().ToUpperInvariant();
-            if (token.Length == 0 || token == "NONE")
+            if (token.Length == 0 || token is "NONE" or "UNCHANGED")
             {
                 continue;
             }
@@ -42,6 +42,8 @@ public static class Hotkeys
         return token.ToUpperInvariant() switch
         {
             "CONTROL" or "CTRL" => "Ctrl",
+            "UNCHANGED" => "unchanged",
+            "NONE" => "none",
             "WINDOWS" or "META" or "WIN" => "Win",
             "ALT" => "Alt",
             "SHIFT" => "Shift",
@@ -104,4 +106,3 @@ public static class Hotkeys
         return map;
     }
 }
-

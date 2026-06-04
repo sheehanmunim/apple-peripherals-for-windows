@@ -32,6 +32,7 @@ public sealed class GestureConfig
     public double TapMaxDistance { get; set; } = 95.0;
     public bool SecondaryClickEnabled { get; set; } = true;
     public bool ThreeFingerMiddleClick { get; set; } = true;
+    public bool SwapLeftRightButtons { get; set; }
     public bool PinchZoomEnabled { get; set; } = true;
     public string PinchZoomModifier { get; set; } = "Ctrl";
     public double PinchSensitivity { get; set; } = 0.55;
@@ -58,6 +59,8 @@ public sealed class KeyboardConfig
 {
     public bool Enabled { get; set; } = true;
     public bool OnlyWhenAppleKeyboardPresent { get; set; } = true;
+    public bool SwapExchangedKeys { get; set; } = true;
+    public string FKeyMode { get; set; } = "standard";
     public string LeftCommand { get; set; } = "Ctrl";
     public string RightCommand { get; set; } = "Ctrl";
     public string LeftControl { get; set; } = "Win";
@@ -65,6 +68,18 @@ public sealed class KeyboardConfig
     public string LeftOption { get; set; } = "Alt";
     public string RightOption { get; set; } = "Alt";
     public string CapsLock { get; set; } = "CapsLock";
+    public string F1 { get; set; } = "unchanged";
+    public string F2 { get; set; } = "unchanged";
+    public string F3 { get; set; } = "unchanged";
+    public string F4 { get; set; } = "unchanged";
+    public string F5 { get; set; } = "unchanged";
+    public string F6 { get; set; } = "unchanged";
+    public string F7 { get; set; } = "unchanged";
+    public string F8 { get; set; } = "unchanged";
+    public string F9 { get; set; } = "unchanged";
+    public string F10 { get; set; } = "unchanged";
+    public string F11 { get; set; } = "unchanged";
+    public string F12 { get; set; } = "unchanged";
     public string F13 { get; set; } = "none";
     public string F14 { get; set; } = "none";
     public string F15 { get; set; } = "none";

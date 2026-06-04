@@ -15,6 +15,8 @@ internal sealed class KeyboardRemapper : IDisposable
     private const ushort VkRightWin = 0x5C;
     private const ushort VkCapsLock = 0x14;
     private const ushort VkEscape = 0x1B;
+    private const ushort VkF1 = 0x70;
+    private const ushort VkF12 = 0x7B;
     private const ushort VkF13 = 0x7C;
     private const ushort VkF19 = 0x82;
 
@@ -177,13 +179,25 @@ internal sealed class KeyboardRemapper : IDisposable
     {
         return vk switch
         {
-            VkLeftWin => config.LeftCommand,
-            VkRightWin => config.RightCommand,
-            VkLeftControl => config.LeftControl,
-            VkRightControl => config.RightControl,
-            VkLeftMenu => config.LeftOption,
-            VkRightMenu => config.RightOption,
-            VkCapsLock => config.CapsLock,
+            VkLeftWin when config.SwapExchangedKeys => config.LeftCommand,
+            VkRightWin when config.SwapExchangedKeys => config.RightCommand,
+            VkLeftControl when config.SwapExchangedKeys => config.LeftControl,
+            VkRightControl when config.SwapExchangedKeys => config.RightControl,
+            VkLeftMenu when config.SwapExchangedKeys => config.LeftOption,
+            VkRightMenu when config.SwapExchangedKeys => config.RightOption,
+            VkCapsLock when config.SwapExchangedKeys => config.CapsLock,
+            0x70 when UseCustomFKeys => config.F1,
+            0x71 when UseCustomFKeys => config.F2,
+            0x72 when UseCustomFKeys => config.F3,
+            0x73 when UseCustomFKeys => config.F4,
+            0x74 when UseCustomFKeys => config.F5,
+            0x75 when UseCustomFKeys => config.F6,
+            0x76 when UseCustomFKeys => config.F7,
+            0x77 when UseCustomFKeys => config.F8,
+            0x78 when UseCustomFKeys => config.F9,
+            0x79 when UseCustomFKeys => config.F10,
+            0x7A when UseCustomFKeys => config.F11,
+            0x7B when UseCustomFKeys => config.F12,
             0x7C => config.F13,
             0x7D => config.F14,
             0x7E => config.F15,
@@ -195,7 +209,10 @@ internal sealed class KeyboardRemapper : IDisposable
         };
     }
 
-    private static bool IsFunctionHotkey(ushort vk) => vk is >= VkF13 and <= VkF19;
+    private bool UseCustomFKeys =>
+        NormalizeAction(config.FKeyMode) == "custom";
+
+    private static bool IsFunctionHotkey(ushort vk) => vk is >= VkF1 and <= VkF19;
 
     private static bool IsUnchangedAction(string action) =>
         NormalizeAction(action) is "" or "unchanged";
