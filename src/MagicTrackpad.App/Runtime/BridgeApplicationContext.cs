@@ -138,6 +138,8 @@ internal sealed class BridgeApplicationContext : ApplicationContext
 
     private void OnReport(HidDeviceInfo device, byte[] report)
     {
+        DeviceBattery.TryCacheReport(device, report);
+
         if (config.LogRawReports)
         {
             LogRawReport(device, report);

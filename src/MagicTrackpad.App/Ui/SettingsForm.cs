@@ -194,32 +194,32 @@ public sealed class SettingsForm : Form
         AddCheck(two, "TwoFingerSwipePagesEnabled", "Swipe left/right between pages", 28);
         AddSlider(two, "ScrollSensitivity", "Speed:", 5, 200, "Slow", "Fast");
         AddSlider(two, "PinchSensitivity", "Pinch:", 10, 200, "Light", "Strong");
-        AddHotkey(two, "TwoFingerSwipeLeft", "2 finger left");
-        AddHotkey(two, "TwoFingerSwipeRight", "2 finger right");
-        AddHotkey(two, "SmartZoomIn", "Zoom in");
-        AddHotkey(two, "SmartZoomOut", "Zoom reset");
-        AddHotkey(two, "RotateClockwise", "Rotate CW");
-        AddHotkey(two, "RotateCounterClockwise", "Rotate CCW");
+        AddActionChoice(two, "TwoFingerSwipeLeft", "Swipe left:", TwoFingerLeftActions(), 210);
+        AddActionChoice(two, "TwoFingerSwipeRight", "Swipe right:", TwoFingerRightActions(), 210);
+        AddActionChoice(two, "SmartZoomIn", "Smart zoom:", SmartZoomInActions(), 210);
+        AddActionChoice(two, "SmartZoomOut", "Zoom again:", SmartZoomOutActions(), 210);
+        AddActionChoice(two, "RotateClockwise", "Rotate CW:", RotateClockwiseActions(), 210);
+        AddActionChoice(two, "RotateCounterClockwise", "Rotate CCW:", RotateCounterClockwiseActions(), 210);
 
         var three = Group(middle, "3 Finger Gestures", MainColumnWidth);
         AddCheck(three, "ThreeFingerTap", "Tap to middle click");
-        AddHotkey(three, "ThreeFingerTapHotkey", "Tap hotkey");
-        AddCheck(three, "ThreeFingerSwipesEnabled", "Enable 3 and 4 finger swipe keybinds");
-        AddHotkey(three, "ThreeFingerSwipeLeft", "3 finger left");
-        AddHotkey(three, "ThreeFingerSwipeRight", "3 finger right");
-        AddHotkey(three, "ThreeFingerSwipeUp", "3 finger up");
-        AddHotkey(three, "ThreeFingerSwipeDown", "3 finger down");
+        AddActionChoice(three, "ThreeFingerTapHotkey", "Tap action:", TapActions(), 210);
+        AddCheck(three, "ThreeFingerSwipesEnabled", "Enable 3 and 4 finger gestures");
+        AddActionChoice(three, "ThreeFingerSwipeLeft", "Swipe left:", DesktopLeftActions(), 210);
+        AddActionChoice(three, "ThreeFingerSwipeRight", "Swipe right:", DesktopRightActions(), 210);
+        AddActionChoice(three, "ThreeFingerSwipeUp", "Swipe up:", SwipeUpActions(), 210);
+        AddActionChoice(three, "ThreeFingerSwipeDown", "Swipe down:", SwipeDownActions(), 210);
 
         var four = Group(right, "4 Finger Gestures", MainColumnWidth);
-        AddHotkey(four, "FourFingerSwipeLeft", "4 finger left");
-        AddHotkey(four, "FourFingerSwipeRight", "4 finger right");
-        AddHotkey(four, "FourFingerSwipeUp", "4 finger up");
-        AddHotkey(four, "FourFingerSwipeDown", "4 finger down");
+        AddActionChoice(four, "FourFingerSwipeLeft", "Swipe left:", DesktopLeftActions(), 210);
+        AddActionChoice(four, "FourFingerSwipeRight", "Swipe right:", DesktopRightActions(), 210);
+        AddActionChoice(four, "FourFingerSwipeUp", "Swipe up:", SwipeUpActions(), 210);
+        AddActionChoice(four, "FourFingerSwipeDown", "Swipe down:", SwipeDownActions(), 210);
         AddCheck(four, "FourFingerPinchEnabled", "Pinch/spread for Launchpad and desktop");
         AddCheck(four, "FourFingerTapEnabled", "Tap for Notification Center");
-        AddHotkey(four, "FourFingerPinchIn", "Pinch in");
-        AddHotkey(four, "FourFingerSpread", "Spread out");
-        AddHotkey(four, "FourFingerTap", "4 finger tap");
+        AddActionChoice(four, "FourFingerPinchIn", "Pinch in:", PinchInActions(), 210);
+        AddActionChoice(four, "FourFingerSpread", "Spread out:", SpreadActions(), 210);
+        AddActionChoice(four, "FourFingerTap", "Tap:", FourFingerTapActions(), 210);
         AddSlider(four, "SwipeThreshold", "Left/right sense:", 100, 1400, "Short", "Long");
         AddSlider(four, "SwipeVerticalThreshold", "Up/down sense:", 100, 1400, "Short", "Long");
 
@@ -317,7 +317,7 @@ public sealed class SettingsForm : Form
         row.Controls.Add(log);
         row.Controls.Add(new Label { Text = "Touch report capture", Width = 210, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextMuted });
         group.Controls.Add(row);
-        AddProgress(group, device.Connected ? 100 : 0, device.Connected ? "Connected. Battery unavailable." : "Device not detected.");
+        AddProgress(group, device.Battery.Percent, BatteryText(device));
     }
 
     private void BuildKeyboardInfo(FlowLayoutPanel column, DeviceTabInfo device)
@@ -330,7 +330,7 @@ public sealed class SettingsForm : Form
             Height = 260,
             Margin = new Padding(8, 16, 8, 16),
         });
-        AddProgress(group, device.Connected ? 100 : 0, device.Connected ? "Connected. Battery unavailable." : "Device not detected.");
+        AddProgress(group, device.Battery.Percent, BatteryText(device));
     }
 
     private void BuildStatusGroup(FlowLayoutPanel column, string title, DeviceTabInfo device, int width)
@@ -381,13 +381,13 @@ public sealed class SettingsForm : Form
         group.Controls.Add(row);
     }
 
-    private static void AddProgress(FlowLayoutPanel group, int value, string text)
+    private static void AddProgress(FlowLayoutPanel group, int? value, string text)
     {
         var bar = new LevelMeter
         {
             Width = ContentWidth(group) - 8,
             Height = 28,
-            Value = Math.Clamp(value, 0, 100),
+            Value = value is int percent ? Math.Clamp(percent, 0, 100) : null,
             Margin = new Padding(8, 18, 8, 6),
         };
         group.Controls.Add(bar);
@@ -398,6 +398,27 @@ public sealed class SettingsForm : Form
             Height = 44,
             TextAlign = ContentAlignment.MiddleCenter,
         });
+    }
+
+    private static string BatteryText(DeviceTabInfo device)
+    {
+        if (!device.Connected)
+        {
+            return "Device not detected.";
+        }
+
+        if (device.Battery.Percent is not int percent)
+        {
+            return "Connected. Battery not reported yet.";
+        }
+
+        var state = device.Battery.Charging switch
+        {
+            true => "charging",
+            false => "on battery",
+            _ => "reported",
+        };
+        return $"Battery: {percent}% ({state}).";
     }
 
     private static void FitTrackpadLayout(TabPage page, TableLayoutPanel grid, FlowLayoutPanel left, FlowLayoutPanel middle, FlowLayoutPanel right)
@@ -706,6 +727,25 @@ public sealed class SettingsForm : Form
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
             Width = Math.Min(comboWidth, Math.Max(120, contentWidth - 235)),
+            BackColor = Color.FromArgb(10, 10, 10),
+            ForeColor = TextMain,
+            FlatStyle = FlatStyle.Flat,
+        };
+        combo.Items.AddRange(choices.Cast<object>().ToArray());
+        controlsByName[name] = combo;
+        row.Controls.Add(combo);
+        parent.Controls.Add(row);
+    }
+
+    private void AddActionChoice(FlowLayoutPanel parent, string name, string label, ActionOption[] choices, int comboWidth)
+    {
+        var contentWidth = ContentWidth(parent);
+        var row = Row(width: contentWidth - 8);
+        row.Controls.Add(ThemedLabel(label, 125));
+        var combo = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Width = Math.Min(comboWidth, Math.Max(160, contentWidth - 145)),
             BackColor = Color.FromArgb(10, 10, 10),
             ForeColor = TextMain,
             FlatStyle = FlatStyle.Flat,
@@ -1174,29 +1214,35 @@ public sealed class SettingsForm : Form
             devices = [];
         }
 
+        var batteries = DeviceBattery.QueryApplePeripheralBatteries(devices);
         var result = new List<DeviceTabInfo>();
         foreach (var device in DeviceCatalog.FindMagicTrackpads(devices).GroupBy(item => DeviceActions.PhysicalKey(item.Name)).Select(group => group.First()))
         {
-            result.Add(new DeviceTabInfo(DeviceKind.Trackpad, DeviceTitle(device, "Magic Trackpad"), device, true));
+            result.Add(new DeviceTabInfo(DeviceKind.Trackpad, DeviceTitle(device, "Magic Trackpad"), device, true, BatteryFor(device, batteries)));
         }
 
         foreach (var device in DeviceCatalog.FindAppleKeyboards(devices).GroupBy(item => DeviceActions.PhysicalKey(item.Name)).Select(group => group.First()))
         {
-            result.Add(new DeviceTabInfo(DeviceKind.Keyboard, DeviceTitle(device, "Magic Keyboard"), device, true));
+            result.Add(new DeviceTabInfo(DeviceKind.Keyboard, DeviceTitle(device, "Magic Keyboard"), device, true, BatteryFor(device, batteries)));
         }
 
         if (!result.Any(item => item.Kind == DeviceKind.Trackpad))
         {
-            result.Add(new DeviceTabInfo(DeviceKind.Trackpad, "Magic Trackpad", null, false));
+            result.Add(new DeviceTabInfo(DeviceKind.Trackpad, "Magic Trackpad", null, false, DeviceBattery.Unknown()));
         }
 
         if (!result.Any(item => item.Kind == DeviceKind.Keyboard))
         {
-            result.Add(new DeviceTabInfo(DeviceKind.Keyboard, "Magic Keyboard", null, false));
+            result.Add(new DeviceTabInfo(DeviceKind.Keyboard, "Magic Keyboard", null, false, DeviceBattery.Unknown()));
         }
 
         return result;
     }
+
+    private static BatteryStatus BatteryFor(HidDeviceInfo device, IReadOnlyDictionary<string, BatteryStatus> batteries) =>
+        batteries.TryGetValue(DeviceActions.PhysicalKey(device.Name), out var status)
+            ? status
+            : DeviceBattery.Unknown("Battery not reported");
 
     private static string DeviceTitle(HidDeviceInfo device, string fallback)
     {
@@ -1272,7 +1318,7 @@ public sealed class SettingsForm : Form
 
         if (control is ComboBox combo)
         {
-            combo.SelectedItem = combo.Items.Contains(value) ? value : combo.Items[0];
+            combo.SelectedItem = ComboItemForValue(combo, value) ?? combo.Items[0];
         }
         else if (control is TextBox text)
         {
@@ -1295,10 +1341,28 @@ public sealed class SettingsForm : Form
 
         return control switch
         {
-            ComboBox combo => combo.SelectedItem?.ToString() ?? "",
+            ComboBox combo => combo.SelectedItem is ActionOption action ? action.Value : combo.SelectedItem?.ToString() ?? "",
             TextBox text => text.Text,
             _ => "",
         };
+    }
+
+    private static object? ComboItemForValue(ComboBox combo, string value)
+    {
+        foreach (var item in combo.Items)
+        {
+            if (item is ActionOption action && string.Equals(action.Value, value, StringComparison.OrdinalIgnoreCase))
+            {
+                return item;
+            }
+
+            if (item is string text && string.Equals(text, value, StringComparison.OrdinalIgnoreCase))
+            {
+                return item;
+            }
+        }
+
+        return null;
     }
 
     private static int Scale(double value, int factor) => (int)Math.Round(value * factor);
@@ -1306,6 +1370,121 @@ public sealed class SettingsForm : Form
     private static string[] ButtonChoices() => ["left", "middle", "right", "none"];
 
     private static string[] KeyActionChoices() => ["unchanged", "Ctrl", "Alt", "Win", "Shift", "Esc", "CapsLock", "none"];
+
+    private static ActionOption[] TwoFingerLeftActions() =>
+    [
+        Action("Previous page", "BrowserBack"),
+        Action("Previous desktop", "Win+Ctrl+Left"),
+        Action("Task View", "Win+Tab"),
+        Action("Show desktop", "Win+D"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] TwoFingerRightActions() =>
+    [
+        Action("Next page", "BrowserForward"),
+        Action("Next desktop", "Win+Ctrl+Right"),
+        Action("Task View", "Win+Tab"),
+        Action("Show desktop", "Win+D"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] SmartZoomInActions() =>
+    [
+        Action("Zoom in", "Ctrl+Plus"),
+        Action("Reset zoom", "Ctrl+0"),
+        Action("Search / Spotlight", "Win+S"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] SmartZoomOutActions() =>
+    [
+        Action("Reset zoom", "Ctrl+0"),
+        Action("Zoom out", "Ctrl+Minus"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] RotateClockwiseActions() =>
+    [
+        Action("Rotate clockwise", "Ctrl+R"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] RotateCounterClockwiseActions() =>
+    [
+        Action("Rotate counterclockwise", "Ctrl+Shift+R"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] TapActions() =>
+    [
+        Action("Middle click", "none"),
+        Action("Search / Spotlight", "Win+S"),
+        Action("Task View", "Win+Tab"),
+        Action("Notification Center", "Win+N"),
+    ];
+
+    private static ActionOption[] DesktopLeftActions() =>
+    [
+        Action("Previous desktop", "Win+Ctrl+Left"),
+        Action("Previous page", "BrowserBack"),
+        Action("Task View", "Win+Tab"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] DesktopRightActions() =>
+    [
+        Action("Next desktop", "Win+Ctrl+Right"),
+        Action("Next page", "BrowserForward"),
+        Action("Task View", "Win+Tab"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] SwipeUpActions() =>
+    [
+        Action("Task View", "Win+Tab"),
+        Action("Search / Spotlight", "Win+S"),
+        Action("Start / Launchpad", "Win"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] SwipeDownActions() =>
+    [
+        Action("Show desktop", "Win+D"),
+        Action("App switcher", "Alt+Tab"),
+        Action("Notification Center", "Win+N"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] PinchInActions() =>
+    [
+        Action("Start / Launchpad", "Win"),
+        Action("Search / Spotlight", "Win+S"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] SpreadActions() =>
+    [
+        Action("Show desktop", "Win+D"),
+        Action("Task View", "Win+Tab"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption[] FourFingerTapActions() =>
+    [
+        Action("Notification Center", "Win+N"),
+        Action("Start / Launchpad", "Win"),
+        Action("Search / Spotlight", "Win+S"),
+        Action("Show desktop", "Win+D"),
+        Action("Do nothing", "none"),
+    ];
+
+    private static ActionOption Action(string label, string value) => new(label, value);
+}
+
+internal sealed record ActionOption(string Label, string Value)
+{
+    public override string ToString() => Label;
 }
 
 internal enum DeviceKind
@@ -1314,7 +1493,7 @@ internal enum DeviceKind
     Keyboard,
 }
 
-internal sealed record DeviceTabInfo(DeviceKind Kind, string Title, HidDeviceInfo? Device, bool Connected);
+internal sealed record DeviceTabInfo(DeviceKind Kind, string Title, HidDeviceInfo? Device, bool Connected, BatteryStatus Battery);
 
 internal sealed class ThemedGroupBox : GroupBox
 {
@@ -1346,7 +1525,7 @@ internal sealed class ThemedGroupBox : GroupBox
 
 internal sealed class LevelMeter : Control
 {
-    public int Value { get; init; }
+    public int? Value { get; init; }
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -1358,14 +1537,16 @@ internal sealed class LevelMeter : Control
         e.Graphics.FillRectangle(background, bounds);
         e.Graphics.DrawRectangle(border, bounds);
 
-        var fillWidth = Math.Max(0, (int)Math.Round((Width - 2) * Math.Clamp(Value, 0, 100) / 100.0));
+        var fillWidth = Value is int value
+            ? Math.Max(0, (int)Math.Round((Width - 2) * Math.Clamp(value, 0, 100) / 100.0))
+            : 0;
         if (fillWidth > 0)
         {
             using var fill = new LinearGradientBrush(new Rectangle(1, 1, fillWidth, Height - 2), Color.FromArgb(68, 214, 44), Color.FromArgb(28, 132, 30), LinearGradientMode.Horizontal);
             e.Graphics.FillRectangle(fill, 1, 1, fillWidth, Height - 2);
         }
 
-        TextRenderer.DrawText(e.Graphics, $"{Value}%", Font, bounds, Color.FromArgb(235, 235, 235), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        TextRenderer.DrawText(e.Graphics, Value is int percent ? $"{percent}%" : "--", Font, bounds, Color.FromArgb(235, 235, 235), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
     }
 }
 

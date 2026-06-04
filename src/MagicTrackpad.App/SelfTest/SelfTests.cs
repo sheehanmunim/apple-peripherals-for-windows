@@ -14,6 +14,7 @@ internal static class SelfTests
             TestHotkeys();
             TestKeyboardDetection();
             TestReports();
+            TestBatteryReports();
             TestGestures();
             TestConfigRoundTrip();
             return 0;
@@ -43,6 +44,15 @@ internal static class SelfTests
         Require(frames[0].ActiveTouches[0].TrackingId == 7);
         Require(frames[0].ActiveTouches[0].X == -100);
         Require(frames[0].ActiveTouches[0].Y == 200);
+    }
+
+    private static void TestBatteryReports()
+    {
+        Require(DeviceBattery.TryParseBatteryReport([0x90, 0x02, 66], out var percent, out var charging));
+        Require(percent == 66);
+        Require(charging == true);
+        Require(DeviceBattery.TryParseBatteryReport([0x47, 44], out percent, out charging));
+        Require(percent == 44);
     }
 
     private static void TestKeyboardDetection()
