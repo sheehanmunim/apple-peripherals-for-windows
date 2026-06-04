@@ -1575,30 +1575,43 @@ internal sealed class TrackpadPreview : Control
     {
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        var body = new Rectangle(24, 18, Width - 48, Height - 54);
-        using var shadow = new SolidBrush(Color.FromArgb(90, 0, 0, 0));
-        e.Graphics.FillRectangle(shadow, body.X + 4, body.Y + 6, body.Width, body.Height);
-        using var path = Rounded(body, 16);
-        using var fill = new LinearGradientBrush(body, Color.FromArgb(82, 84, 90), Color.FromArgb(37, 39, 45), LinearGradientMode.Vertical);
-        using var border = new Pen(Color.FromArgb(104, 108, 118));
-        e.Graphics.FillPath(fill, path);
-        e.Graphics.DrawPath(border, path);
-        using var accent = new Pen(ThemePalette.Accent, 2);
-        e.Graphics.DrawLine(accent, body.Left + 22, body.Top + 18, body.Right - 22, body.Top + 18);
-        var buttonHeight = 54;
-        var buttonY = body.Bottom - buttonHeight;
-        using var separator = new Pen(Color.FromArgb(92, 95, 104));
-        e.Graphics.DrawLine(separator, body.Left, buttonY, body.Right, buttonY);
-        e.Graphics.DrawLine(separator, body.Left + body.Width / 3, buttonY, body.Left + body.Width / 3, body.Bottom);
-        e.Graphics.DrawLine(separator, body.Left + body.Width * 2 / 3, buttonY, body.Left + body.Width * 2 / 3, body.Bottom);
-        DrawCentered(e.Graphics, "Left click", new Rectangle(body.Left, buttonY, body.Width / 3, buttonHeight));
-        DrawCentered(e.Graphics, "Middle click", new Rectangle(body.Left + body.Width / 3, buttonY, body.Width / 3, buttonHeight));
-        DrawCentered(e.Graphics, "Right click", new Rectangle(body.Left + body.Width * 2 / 3, buttonY, body.Width / 3, buttonHeight));
-    }
+        var width = Math.Max(220, Width - 54);
+        var height = Math.Min(170, (int)Math.Round(width * 0.64));
+        var body = new Rectangle((Width - width) / 2, Math.Max(24, (Height - height) / 2 - 8), width, height);
+        var side = new Rectangle(body.Left + 3, body.Bottom - 14, body.Width - 6, 22);
+        var shadow = new Rectangle(body.Left + 10, side.Bottom - 2, body.Width - 20, 16);
 
-    private static void DrawCentered(Graphics graphics, string text, Rectangle bounds)
-    {
-        TextRenderer.DrawText(graphics, text, new Font("Segoe UI", 10F), bounds, ThemePalette.TextMuted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        using (var shadowPath = Rounded(shadow, 18))
+        using (var shadowBrush = new PathGradientBrush(shadowPath)
+        {
+            CenterColor = Color.FromArgb(105, 0, 0, 0),
+            SurroundColors = [Color.FromArgb(0, 0, 0, 0)],
+        })
+        {
+            e.Graphics.FillPath(shadowBrush, shadowPath);
+        }
+
+        using (var sidePath = Rounded(side, 14))
+        using (var sideFill = new LinearGradientBrush(side, Color.FromArgb(205, 208, 214), Color.FromArgb(138, 143, 151), LinearGradientMode.Vertical))
+        using (var sideBorder = new Pen(Color.FromArgb(118, 124, 134)))
+        {
+            e.Graphics.FillPath(sideFill, sidePath);
+            e.Graphics.DrawPath(sideBorder, sidePath);
+        }
+
+        using var bodyPath = Rounded(body, 18);
+        using var glassFill = new LinearGradientBrush(body, Color.FromArgb(249, 250, 252), Color.FromArgb(219, 222, 227), LinearGradientMode.Vertical);
+        using var glassBorder = new Pen(Color.FromArgb(164, 169, 178));
+        e.Graphics.FillPath(glassFill, bodyPath);
+        e.Graphics.DrawPath(glassBorder, bodyPath);
+
+        var inner = Rectangle.Inflate(body, -10, -10);
+        using var highlight = new Pen(Color.FromArgb(248, 255, 255, 255), 2);
+        e.Graphics.DrawArc(highlight, inner.Left, inner.Top, inner.Width, inner.Height, 202, 136);
+
+        var bottomLine = new Rectangle(body.Left + 18, body.Bottom - 20, body.Width - 36, 1);
+        using var glassLine = new LinearGradientBrush(bottomLine, Color.FromArgb(0, 255, 255, 255), Color.FromArgb(90, 255, 255, 255), LinearGradientMode.Horizontal);
+        e.Graphics.FillRectangle(glassLine, bottomLine);
     }
 
     private static GraphicsPath Rounded(Rectangle rect, int radius)
@@ -1616,60 +1629,93 @@ internal sealed class TrackpadPreview : Control
 
 internal sealed class KeyboardPreview : Control
 {
+    private readonly record struct KeyboardKey(string Text, float Units);
+
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        var keyboard = new Rectangle(26, 28, Width - 52, Height - 64);
-        using var bodyPath = Rounded(keyboard, 12);
-        using var body = new SolidBrush(ThemePalette.SurfaceAlt);
-        using var border = new Pen(Color.FromArgb(104, 108, 118));
-        e.Graphics.FillPath(body, bodyPath);
-        e.Graphics.DrawPath(border, bodyPath);
+        var width = Math.Max(480, Width - 54);
+        var height = Math.Min(205, (int)Math.Round(width * 0.36));
+        var keyboard = new Rectangle((Width - width) / 2, Math.Max(24, (Height - height) / 2 - 4), width, height);
 
-        var rows = new[]
+        using (var shadowPath = Rounded(new Rectangle(keyboard.Left + 10, keyboard.Bottom - 2, keyboard.Width - 20, 18), 20))
+        using (var shadowBrush = new PathGradientBrush(shadowPath)
         {
-            new[] { "esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12" },
-            new[] { "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=" },
-            new[] { "tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]" },
-            new[] { "caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'" },
-            new[] { "shift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "shift" },
-            new[] { "fn", "control", "option", "command", "space", "command", "option" },
-        };
+            CenterColor = Color.FromArgb(105, 0, 0, 0),
+            SurroundColors = [Color.FromArgb(0, 0, 0, 0)],
+        })
+        {
+            e.Graphics.FillPath(shadowBrush, shadowPath);
+        }
 
-        var y = keyboard.Top + 10;
+        using (var bodyPath = Rounded(keyboard, 14))
+        using (var bodyFill = new LinearGradientBrush(keyboard, Color.FromArgb(224, 227, 232), Color.FromArgb(174, 179, 187), LinearGradientMode.Vertical))
+        using (var border = new Pen(Color.FromArgb(128, 134, 143)))
+        {
+            e.Graphics.FillPath(bodyFill, bodyPath);
+            e.Graphics.DrawPath(border, bodyPath);
+        }
+
+        var rows = KeyboardRows();
+        const int padX = 15;
+        const int padY = 14;
+        const int rowGap = 6;
+        const int keyGap = 5;
+        var innerWidth = keyboard.Width - padX * 2;
+        var keyHeight = (keyboard.Height - padY * 2 - rowGap * (rows.Length - 1)) / rows.Length;
+        var y = keyboard.Top + padY;
         foreach (var row in rows)
         {
-            var x = keyboard.Left + 10;
-            var keyHeight = 27;
+            var totalUnits = row.Sum(key => key.Units);
+            var unit = (innerWidth - keyGap * (row.Length - 1)) / totalUnits;
+            var rowWidth = (int)Math.Round(totalUnits * unit + keyGap * (row.Length - 1));
+            var x = keyboard.Left + padX + Math.Max(0, (innerWidth - rowWidth) / 2);
+
             foreach (var key in row)
             {
-                var width = key switch
-                {
-                    "space" => 145,
-                    "shift" => 50,
-                    "command" => 54,
-                    "control" or "option" => 46,
-                    "caps" => 50,
-                    "tab" => 46,
-                    _ => 35,
-                };
-                DrawKey(e.Graphics, new Rectangle(x, y, width, keyHeight), key);
-                x += width + 4;
+                var keyWidth = (int)Math.Round(key.Units * unit);
+                DrawKey(e.Graphics, new Rectangle(x, y, keyWidth, keyHeight), key.Text);
+                x += keyWidth + keyGap;
             }
-            y += keyHeight + 8;
+            y += keyHeight + rowGap;
         }
     }
 
     private static void DrawKey(Graphics graphics, Rectangle rect, string text)
     {
+        using var shadowPath = Rounded(new Rectangle(rect.Left + 1, rect.Top + 1, rect.Width, rect.Height), 4);
+        using var shadow = new SolidBrush(Color.FromArgb(35, 0, 0, 0));
+        graphics.FillPath(shadow, shadowPath);
+
         using var path = Rounded(rect, 4);
-        var isModifier = text is "control" or "option" or "command" or "fn" or "caps" or "shift";
-        using var fill = new SolidBrush(isModifier ? ThemePalette.AccentSurface : Color.FromArgb(60, 62, 69));
-        using var border = new Pen(isModifier ? ThemePalette.Accent : Color.FromArgb(104, 108, 118));
+        using var fill = new LinearGradientBrush(rect, Color.FromArgb(255, 255, 255), Color.FromArgb(236, 238, 242), LinearGradientMode.Vertical);
+        using var border = new Pen(Color.FromArgb(174, 179, 187));
         graphics.FillPath(fill, path);
         graphics.DrawPath(border, path);
-        TextRenderer.DrawText(graphics, text, new Font("Segoe UI", 7F), rect, ThemePalette.TextMain, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+
+        if (text.Length == 0)
+        {
+            return;
+        }
+
+        using var font = new Font("Segoe UI", text.Length > 5 ? 6.2F : 7.4F);
+        TextRenderer.DrawText(graphics, text, font, rect, Color.FromArgb(31, 35, 42), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+    }
+
+    private static KeyboardKey[][] KeyboardRows() =>
+    [
+        [Key("esc", 1.1F), Key("F1", 1), Key("F2", 1), Key("F3", 1), Key("F4", 1), Key("F5", 1), Key("F6", 1), Key("F7", 1), Key("F8", 1), Key("F9", 1), Key("F10", 1), Key("F11", 1), Key("F12", 1), Key("pwr", 1.1F)],
+        [Key("`", 1), Key("1", 1), Key("2", 1), Key("3", 1), Key("4", 1), Key("5", 1), Key("6", 1), Key("7", 1), Key("8", 1), Key("9", 1), Key("0", 1), Key("-", 1), Key("=", 1), Key("del", 1.6F)],
+        [Key("tab", 1.45F), Key("Q", 1), Key("W", 1), Key("E", 1), Key("R", 1), Key("T", 1), Key("Y", 1), Key("U", 1), Key("I", 1), Key("O", 1), Key("P", 1), Key("[", 1), Key("]", 1), Key("\\", 1.15F)],
+        [Key("caps", 1.7F), Key("A", 1), Key("S", 1), Key("D", 1), Key("F", 1), Key("G", 1), Key("H", 1), Key("J", 1), Key("K", 1), Key("L", 1), Key(";", 1), Key("'", 1), Key("return", 1.95F)],
+        [Key("shift", 2.2F), Key("Z", 1), Key("X", 1), Key("C", 1), Key("V", 1), Key("B", 1), Key("N", 1), Key("M", 1), Key(",", 1), Key(".", 1), Key("/", 1), Key("shift", 2.35F)],
+        [Key("fn", 1), Key("ctrl", 1.22F), Key("opt", 1.22F), Key("cmd", 1.55F), Key("", 5.35F), Key("cmd", 1.55F), Key("opt", 1.22F), Key("<", 1), Key("^", 1), Key("v", 1), Key(">", 1)],
+    ];
+
+    private static KeyboardKey Key(string text, float units)
+    {
+        return new KeyboardKey(text, units);
     }
 
     private static GraphicsPath Rounded(Rectangle rect, int radius)
