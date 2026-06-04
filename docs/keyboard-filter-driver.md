@@ -47,7 +47,7 @@ The installer and `scripts\install-keyboard-filter-driver.ps1` verify the driver
 Verify a signed package before bundling it:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\verify-keyboard-driver-package.ps1 -ZipPath .\artifacts\keyboard-filter\AppleKeyboardFilterDriver.zip -RequireAllArchitectures
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-keyboard-driver-package.ps1 -ZipPath .\artifacts\keyboard-filter\AppleKeyboardFilterDriver.zip -RequireAllArchitectures -RequireMicrosoftSignature
 ```
 
 ## GitHub Artifact Build
@@ -68,12 +68,18 @@ Build the CAB locally with:
 powershell -ExecutionPolicy Bypass -File .\scripts\build-keyboard-driver-submission-cab.ps1
 ```
 
+After Partner Center returns the Microsoft-signed package, convert it into the installer-ready zip with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package-signed-keyboard-driver.ps1 -SignedPackage .\path\from-partner-center.cab -RequireMicrosoftSignature
+```
+
 ## Bundle With Setup
 
 Build the setup `.exe` with the signed keyboard driver package:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1 -Runtime win-x64 -KeyboardDriverZip .\artifacts\keyboard-filter\AppleKeyboardFilterDriver.zip
+powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1 -Runtime win-x64 -KeyboardDriverZip .\artifacts\keyboard-filter\AppleKeyboardFilterDriver-signed.zip -RequireKeyboardDriver
 ```
 
 When the signed package is bundled, the setup app installs it together with the Magic Trackpad Precision Touchpad driver.

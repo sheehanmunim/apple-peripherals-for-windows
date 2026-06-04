@@ -3,7 +3,8 @@ param(
     [string]$ZipPath,
     [ValidateSet("win-x64", "win-arm64", "current")]
     [string]$Runtime = "current",
-    [switch]$RequireAllArchitectures
+    [switch]$RequireAllArchitectures,
+    [switch]$RequireMicrosoftSignature
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,6 +43,10 @@ function Assert-ValidSignature {
     $signature = Get-AuthenticodeSignature -LiteralPath $Path
     if ($signature.Status -ne "Valid") {
         throw "$Path is not signed by a trusted certificate. Status: $($signature.Status)"
+    }
+
+    if ($RequireMicrosoftSignature -and (!$signature.SignerCertificate -or $signature.SignerCertificate.Subject -notmatch "Microsoft")) {
+        throw "$Path is signed, but not by a Microsoft driver-signing certificate. Signer: $($signature.SignerCertificate.Subject)"
     }
 }
 

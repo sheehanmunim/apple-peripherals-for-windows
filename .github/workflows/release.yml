@@ -73,7 +73,7 @@ jobs:
             }
           }
 
-          powershell -ExecutionPolicy Bypass -File .\scripts\verify-keyboard-driver-package.ps1 -ZipPath $driverZip -RequireAllArchitectures
+          powershell -ExecutionPolicy Bypass -File .\scripts\verify-keyboard-driver-package.ps1 -ZipPath $driverZip -RequireAllArchitectures -RequireMicrosoftSignature
           "KEYBOARD_DRIVER_ZIP=$driverZip" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Build installers

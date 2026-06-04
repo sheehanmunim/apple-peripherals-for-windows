@@ -8,8 +8,15 @@ The public setup executable can install the Magic Trackpad Precision Touchpad dr
 2. Download the `AppleKeyboardFilterDriver-attestation-cab-unsigned` artifact, or build it locally with `scripts\build-keyboard-driver-submission-cab.ps1`.
 3. Sign the CAB with the EV or registered code-signing certificate for the Hardware Dev Center account.
 4. Submit the signed CAB for Microsoft attestation or HLK signing through the Windows Hardware Developer Program.
-5. Download the Microsoft-signed driver package from Partner Center and host the signed `AppleKeyboardFilterDriver.zip` at a private or public HTTPS URL.
-6. Run the `release` workflow with:
+5. Download the Microsoft-signed driver package from Partner Center.
+6. Repackage the returned `.cab`, `.zip`, or folder into the installer-ready zip:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package-signed-keyboard-driver.ps1 -SignedPackage .\path\from-partner-center.cab -RequireMicrosoftSignature
+```
+
+7. Host `artifacts\keyboard-filter\AppleKeyboardFilterDriver-signed.zip` at a private or public HTTPS URL.
+8. Run the `release` workflow with:
 
 ```text
 version: v0.4.0
@@ -18,7 +25,7 @@ signed_keyboard_driver_sha256: <sha256>
 require_signed_keyboard_driver: true
 ```
 
-The workflow downloads the signed zip, verifies the SHA-256 when provided, checks the package contains AMD64 and ARM64 driver folders, verifies the driver catalog signatures, builds x64 and ARM64 installers, and publishes the GitHub release.
+The workflow downloads the signed zip, verifies the SHA-256 when provided, checks the package contains AMD64 and ARM64 driver folders, verifies the Microsoft driver catalog signatures, builds x64 and ARM64 installers, and publishes the GitHub release.
 
 Microsoft's attestation documentation requires a Hardware Developer Program account with an associated certificate, a CAB signed with that certificate, and Partner Center submission. The `keyboard-driver` workflow output is therefore a submission input, not a driver that normal Windows can load.
 

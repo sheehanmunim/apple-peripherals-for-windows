@@ -502,7 +502,7 @@ internal static class Installer
             ?? throw new InvalidOperationException("Could not find Apple Keyboard Filter driver catalog.");
         foreach (var file in new[] { catalog })
         {
-            AssertValidSignature(file);
+            AssertValidSignature(file, requireMicrosoftSigner: true);
         }
 
         progress.Report("Adding Magic Keyboard driver package...");
@@ -516,14 +516,16 @@ internal static class Installer
         return process.ExitCode == 3010;
     }
 
-    private static void AssertValidSignature(string path)
+    private static void AssertValidSignature(string path, bool requireMicrosoftSigner = false)
     {
-        var command = "$sig = Get-AuthenticodeSignature -LiteralPath " + PowerShellQuote(path) + "; if ($sig.Status -ne 'Valid') { exit 1 }";
+        var command = "$sig = Get-AuthenticodeSignature -LiteralPath " + PowerShellQuote(path) + "; if ($sig.Status -ne 'Valid') { exit 1 }; if (" + (requireMicrosoftSigner ? "$true" : "$false") + " -and (!$sig.SignerCertificate -or $sig.SignerCertificate.Subject -notmatch 'Microsoft')) { exit 2 }";
         var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(command));
         var process = RunProcess("powershell.exe", $"-NoLogo -NoProfile -ExecutionPolicy Bypass -EncodedCommand {encoded}", wait: true);
         if (process.ExitCode != 0)
         {
-            throw new InvalidOperationException($"Signature check failed for {path}.");
+            throw new InvalidOperationException(requireMicrosoftSigner
+                ? $"Microsoft driver signature check failed for {path}."
+                : $"Signature check failed for {path}.");
         }
     }
 
