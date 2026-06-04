@@ -1,0 +1,46 @@
+name: keyboard-driver
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/keyboard-driver.yml"
+      - "scripts/build-keyboard-filter-driver.ps1"
+      - "src/AppleKeyboardFilter.Driver/**"
+
+jobs:
+  build:
+    name: Build Apple keyboard filter (${{ matrix.platform }})
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x64
+            artifact-name: AppleKeyboardFilterDriver-AMD64-unsigned
+          - platform: ARM64
+            artifact-name: AppleKeyboardFilterDriver-ARM64-unsigned
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Windows Driver Kit
+        shell: pwsh
+        run: |
+          winget install --id Microsoft.WindowsWDK.10.0.26100 -s winget --silent --accept-package-agreements --accept-source-agreements
+
+      - name: Build driver package
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File .\scripts\build-keyboard-filter-driver.ps1 -Platform ${{ matrix.platform }}
+
+      - name: Upload unsigned driver package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: |
+            artifacts/keyboard-filter/**/*.inf
+            artifacts/keyboard-filter/**/*.sys
+            artifacts/keyboard-filter/**/*.cat
+            artifacts/keyboard-filter/*.zip
+          if-no-files-found: error

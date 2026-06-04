@@ -15,7 +15,7 @@ The INF targets these Apple keyboard IDs:
 
 ## Build
 
-Install Visual Studio Build Tools plus the Windows Driver Kit, then build:
+Install Visual Studio Build Tools plus the Windows Driver Kit, or use the Enterprise WDK. Microsoft documents that the EWDK is a standalone command-line driver build environment that includes Visual Studio Build Tools, the SDK, and the WDK. Then build:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build-keyboard-filter-driver.ps1 -Platform x64
@@ -42,7 +42,17 @@ Normal Windows 11 systems require a trusted kernel driver catalog. Do not ship o
 powershell -ExecutionPolicy Bypass -File .\scripts\build-keyboard-filter-driver.ps1 -Platform x64 -CertificateThumbprint <thumbprint>
 ```
 
-The installer and `scripts\install-keyboard-filter-driver.ps1` verify the `.sys` and `.cat` signatures before installing unless `-AllowTestSigned` is explicitly supplied for a development machine.
+The installer and `scripts\install-keyboard-filter-driver.ps1` verify the driver catalog signature before installing unless `-AllowTestSigned` is explicitly supplied for a development machine.
+
+## GitHub Artifact Build
+
+The `keyboard-driver` GitHub Actions workflow builds unsigned AMD64 and ARM64 driver packages on a Windows runner with WDK 26100:
+
+```powershell
+gh workflow run keyboard-driver.yml
+```
+
+Those artifacts are for signing/submission only. Do not install them on normal Windows systems until the catalog is trusted by Microsoft attestation/HLK signing or by a local test-signing setup.
 
 ## Bundle With Setup
 
