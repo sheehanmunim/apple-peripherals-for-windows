@@ -117,6 +117,7 @@ jobs:
             "- Includes current Magic Keyboard modifier remapping, F-key mappings, and settings UI.",
             "- Adds a Magic Keyboard driver repair action from the keyboard status panel.",
             "- Adds a live Globe/Fn key probe in the Magic Keyboard page and `--test-globe` command.",
+            "- Restarts detected Magic Keyboard driver targets after keyboard-filter installation before rechecking status.",
             "- Records whether the installer bundles the signed keyboard filter so the app can show the right Globe/Fn action."
           )
           if ($hasKeyboardDriver) {
