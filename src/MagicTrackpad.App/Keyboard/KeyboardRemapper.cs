@@ -125,6 +125,11 @@ internal sealed class KeyboardRemapper : IDisposable
             return false;
         }
 
+        if (IsGlobeKey(vk) && IsHeldModifierAction(action))
+        {
+            return HandleMappedKeyDown(vk, action);
+        }
+
         if (IsFunctionHotkey(vk))
         {
             if (SystemActions.TryRun(action))
@@ -138,6 +143,11 @@ internal sealed class KeyboardRemapper : IDisposable
             return true;
         }
 
+        return HandleMappedKeyDown(vk, action);
+    }
+
+    private bool HandleMappedKeyDown(ushort vk, string action)
+    {
         var mapped = ModifierTarget(action, vk);
         if (mapped.Count == 0)
         {
@@ -223,19 +233,24 @@ internal sealed class KeyboardRemapper : IDisposable
 
     private static bool IsFunctionHotkey(ushort vk) => vk is >= VkF1 and <= VkF24;
 
+    private static bool IsGlobeKey(ushort vk) => vk is VkF23 or VkF24;
+
     private static bool IsUnchangedAction(string action) =>
         NormalizeAction(action) is "" or "unchanged";
+
+    internal static bool IsHeldModifierAction(string action) =>
+        NormalizeAction(action) is "ctrl" or "control" or "alt" or "option" or "win" or "windows" or "command" or "shift";
 
     private static bool IsClickAction(string action) =>
         NormalizeAction(action) is "esc" or "escape" or "capslock";
 
-    private static IReadOnlyList<ushort> ModifierTarget(string action, ushort originalVk)
+    internal static IReadOnlyList<ushort> ModifierTarget(string action, ushort originalVk)
     {
         return NormalizeAction(action) switch
         {
             "" or "unchanged" => [originalVk],
             "none" => [],
-            "ctrl" or "control" => [originalVk == VkRightWin || originalVk == VkRightControl ? VkRightControl : VkLeftControl],
+            "ctrl" or "control" => [originalVk == VkRightWin || originalVk == VkRightControl || originalVk == VkF24 ? VkRightControl : VkLeftControl],
             "alt" or "option" => [originalVk == VkRightWin || originalVk == VkRightControl || originalVk == VkRightMenu ? VkRightMenu : VkLeftMenu],
             "win" or "windows" or "command" => [originalVk == VkRightWin || originalVk == VkRightControl ? VkRightWin : VkLeftWin],
             "shift" => [0x10],

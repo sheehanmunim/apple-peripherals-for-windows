@@ -302,7 +302,7 @@ public sealed class SettingsForm : Form
         AddCheck(other, "KeyboardEnabled", "Enable Apple keyboard support");
         AddCheck(other, "KeyboardOnlyWhenAppleKeyboardPresent", "Only apply while an Apple keyboard is connected");
         AddCheck(other, "KeyboardSwapExchangedKeys", "Swap exchanged modifier keys");
-        AddHotkey(other, "KeyboardFnGlobe", "Fn / Globe key");
+        AddChoice(other, "KeyboardFnGlobe", "Globe / Fn key:", KeyActionChoices(), 160);
 
         var modifiers = Group(right, "Modifier Key Mappings", KeyboardRightWidth);
         var actions = KeyActionChoices();
@@ -356,7 +356,7 @@ public sealed class SettingsForm : Form
         group.Controls.Add(new KeyboardPreview
         {
             Width = KeyboardLeftWidth - 48,
-            Height = 260,
+            Height = 380,
             Margin = new Padding(8, 16, 8, 16),
         });
         AddProgress(group, device.Battery.Percent, BatteryText(device));
@@ -525,7 +525,11 @@ public sealed class SettingsForm : Form
                 case FlowLayoutPanel row:
                     ResizeRow(row, contentWidth);
                     break;
-                case TrackpadPreview or KeyboardPreview:
+                case KeyboardPreview:
+                    child.Width = Math.Max(180, contentWidth - 4);
+                    child.Height = Math.Clamp((int)Math.Round(child.Width * 0.47), 320, 440);
+                    break;
+                case TrackpadPreview:
                     child.Width = Math.Max(180, contentWidth - 4);
                     break;
                 case LevelMeter:
@@ -1846,7 +1850,49 @@ internal sealed class TrackpadPreview : Control
 
 internal sealed class KeyboardPreview : Control
 {
-    private readonly record struct KeyboardKey(string Text, float Units);
+    private enum KeyGlyph
+    {
+        None,
+        BrightnessDown,
+        BrightnessUp,
+        MissionControl,
+        Search,
+        Microphone,
+        Moon,
+        Rewind,
+        PlayPause,
+        Forward,
+        VolumeMute,
+        VolumeDown,
+        VolumeUp,
+        Lock,
+        Globe,
+        Control,
+        Option,
+        Command,
+        UpDown,
+        UpArrow,
+        DownArrow,
+        LeftArrow,
+        RightArrow,
+    }
+
+    private enum ArrowDirection
+    {
+        Up,
+        Down,
+        Left,
+        Right,
+    }
+
+    private enum LabelAlign
+    {
+        Center,
+        Left,
+        Right,
+    }
+
+    private readonly record struct KeyboardKey(string Main, string Top, string Bottom, float Units, KeyGlyph Glyph, LabelAlign Align);
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -1855,39 +1901,42 @@ internal sealed class KeyboardPreview : Control
         var stage = new Rectangle(4, 8, Width - 8, Height - 16);
         DrawStage(e.Graphics, stage);
 
-        var width = Math.Max(360, Math.Min(stage.Width - 54, 900));
-        var height = Math.Min(Math.Max(150, stage.Height - 64), (int)Math.Round(width * 0.36));
-        var keyboard = new Rectangle(stage.Left + (stage.Width - width) / 2, stage.Top + Math.Max(24, (stage.Height - height) / 2 - 4), width, height);
+        var width = Math.Max(420, Math.Min(stage.Width - 34, 980));
+        var height = Math.Min(stage.Height - 28, (int)Math.Round(width * 0.39));
+        var keyboard = new Rectangle(stage.Left + (stage.Width - width) / 2, stage.Top + Math.Max(12, (stage.Height - height) / 2), width, height);
 
-        using (var shadowPath = Rounded(new Rectangle(keyboard.Left + 10, keyboard.Bottom - 2, keyboard.Width - 20, 18), 20))
+        using (var shadowPath = Rounded(new Rectangle(keyboard.Left + 12, keyboard.Bottom - 1, keyboard.Width - 24, 16), 20))
         using (var shadowBrush = new PathGradientBrush(shadowPath)
         {
-            CenterColor = Color.FromArgb(105, 0, 0, 0),
+            CenterColor = Color.FromArgb(72, 0, 0, 0),
             SurroundColors = [Color.FromArgb(0, 0, 0, 0)],
         })
         {
             e.Graphics.FillPath(shadowBrush, shadowPath);
         }
 
-        using (var bodyPath = Rounded(keyboard, 14))
-        using (var bodyFill = new LinearGradientBrush(keyboard, Color.FromArgb(232, 235, 240), Color.FromArgb(188, 194, 203), LinearGradientMode.Vertical))
-        using (var border = new Pen(Color.FromArgb(142, 149, 160)))
+        using (var bodyPath = Rounded(keyboard, 22))
+        using (var bodyFill = new LinearGradientBrush(keyboard, Color.FromArgb(210, 213, 217), Color.FromArgb(178, 181, 186), LinearGradientMode.Vertical))
+        using (var border = new Pen(Color.FromArgb(137, 142, 150), 1.3F))
         {
             e.Graphics.FillPath(bodyFill, bodyPath);
             e.Graphics.DrawPath(border, bodyPath);
         }
 
-        var rearEdge = new Rectangle(keyboard.Left + 18, keyboard.Top + 8, keyboard.Width - 36, 5);
-        using (var rearFill = new LinearGradientBrush(rearEdge, Color.FromArgb(55, 255, 255, 255), Color.FromArgb(8, 127, 135, 148), LinearGradientMode.Vertical))
+        var grain = new Rectangle(keyboard.Left + 14, keyboard.Top + 8, keyboard.Width - 28, keyboard.Height - 16);
+        using (var grainPen = new Pen(Color.FromArgb(24, 255, 255, 255)))
         {
-            e.Graphics.FillRectangle(rearFill, rearEdge);
+            for (var x = grain.Left; x < grain.Right; x += 7)
+            {
+                e.Graphics.DrawLine(grainPen, x, grain.Top, x + 12, grain.Bottom);
+            }
         }
 
         var rows = KeyboardRows();
-        const int padX = 15;
-        const int padY = 14;
-        const int rowGap = 6;
-        const int keyGap = 5;
+        var padX = Math.Max(14, (int)Math.Round(keyboard.Width * 0.016));
+        var padY = Math.Max(12, (int)Math.Round(keyboard.Height * 0.035));
+        var rowGap = Math.Max(5, (int)Math.Round(keyboard.Height * 0.018));
+        var keyGap = Math.Max(5, (int)Math.Round(keyboard.Width * 0.006));
         var innerWidth = keyboard.Width - padX * 2;
         var keyHeight = (keyboard.Height - padY * 2 - rowGap * (rows.Length - 1)) / rows.Length;
         var y = keyboard.Top + padY;
@@ -1901,7 +1950,7 @@ internal sealed class KeyboardPreview : Control
             foreach (var key in row)
             {
                 var keyWidth = (int)Math.Round(key.Units * unit);
-                DrawKey(e.Graphics, new Rectangle(x, y, keyWidth, keyHeight), key.Text);
+                DrawKey(e.Graphics, new Rectangle(x, y, keyWidth, keyHeight), key);
                 x += keyWidth + keyGap;
             }
             y += keyHeight + rowGap;
@@ -1911,80 +1960,282 @@ internal sealed class KeyboardPreview : Control
     private static void DrawStage(Graphics graphics, Rectangle rect)
     {
         using (var stagePath = Rounded(rect, 8))
-        using (var fill = new LinearGradientBrush(rect, Color.FromArgb(250, 252, 255), Color.FromArgb(238, 243, 249), LinearGradientMode.Vertical))
+        using (var fill = new SolidBrush(Color.White))
         using (var border = new Pen(ThemePalette.StrokeSoft))
         {
             graphics.FillPath(fill, stagePath);
             graphics.DrawPath(border, stagePath);
         }
-
-        using var dot = new SolidBrush(Color.FromArgb(48, 143, 154, 170));
-        for (var y = rect.Top + 18; y < rect.Bottom - 16; y += 18)
-        {
-            for (var x = rect.Left + 20; x < rect.Right - 18; x += 18)
-            {
-                graphics.FillEllipse(dot, x, y, 2, 2);
-            }
-        }
     }
 
-    private static void DrawKey(Graphics graphics, Rectangle rect, string text)
+    private static void DrawKey(Graphics graphics, Rectangle rect, KeyboardKey key)
     {
-        if (text == "updown")
+        if (key.Glyph == KeyGlyph.UpDown)
         {
             var halfHeight = Math.Max(6, (rect.Height - 3) / 2);
-            DrawKey(graphics, new Rectangle(rect.Left, rect.Top, rect.Width, halfHeight), "^");
-            DrawKey(graphics, new Rectangle(rect.Left, rect.Bottom - halfHeight, rect.Width, halfHeight), "v");
+            DrawKey(graphics, new Rectangle(rect.Left, rect.Top, rect.Width, halfHeight), Key("", 1, glyph: KeyGlyph.UpArrow));
+            DrawKey(graphics, new Rectangle(rect.Left, rect.Bottom - halfHeight, rect.Width, halfHeight), Key("", 1, glyph: KeyGlyph.DownArrow));
             return;
         }
 
-        using var shadowPath = Rounded(new Rectangle(rect.Left + 1, rect.Top + 1, rect.Width, rect.Height), 4);
+        using var shadowPath = Rounded(new Rectangle(rect.Left + 1, rect.Top + 1, rect.Width, rect.Height), 7);
         using var shadow = new SolidBrush(Color.FromArgb(35, 0, 0, 0));
         graphics.FillPath(shadow, shadowPath);
 
-        using var path = Rounded(rect, 4);
-        using var fill = new LinearGradientBrush(rect, Color.FromArgb(255, 255, 255), Color.FromArgb(236, 238, 242), LinearGradientMode.Vertical);
-        using var border = new Pen(Color.FromArgb(174, 179, 187));
+        using var path = Rounded(rect, 7);
+        using var fill = new LinearGradientBrush(rect, Color.FromArgb(255, 255, 255), Color.FromArgb(240, 242, 246), LinearGradientMode.Vertical);
+        using var border = new Pen(Color.FromArgb(45, 49, 55), Math.Max(1F, rect.Height * 0.045F));
         graphics.FillPath(fill, path);
         graphics.DrawPath(border, path);
 
-        if (text == "touchid")
+        if (key.Glyph != KeyGlyph.None)
         {
-            var size = Math.Max(12, Math.Min(rect.Width, rect.Height) - 9);
-            var sensor = new Rectangle(rect.Left + (rect.Width - size) / 2, rect.Top + (rect.Height - size) / 2, size, size);
-            using var sensorFill = new LinearGradientBrush(sensor, Color.FromArgb(237, 239, 243), Color.FromArgb(207, 211, 218), LinearGradientMode.Vertical);
-            using var sensorBorder = new Pen(Color.FromArgb(150, 156, 166));
-            graphics.FillEllipse(sensorFill, sensor);
-            graphics.DrawEllipse(sensorBorder, sensor);
-
-            var inner = Rectangle.Inflate(sensor, -Math.Max(3, size / 5), -Math.Max(3, size / 5));
-            using var innerPen = new Pen(Color.FromArgb(120, 132, 141, 154), 1);
-            graphics.DrawEllipse(innerPen, inner);
-            return;
+            DrawGlyph(graphics, rect, key.Glyph);
         }
 
-        if (text.Length == 0)
+        if (key.Top.Length > 0)
         {
-            return;
+            DrawText(graphics, key.Top, rect, KeyTextColor, 8.6F, ContentAlignment.TopCenter, new Padding(0, 6, 0, 0));
         }
 
-        using var font = new Font("Segoe UI", text.Length > 5 ? 6.2F : 7.4F);
-        TextRenderer.DrawText(graphics, text, font, rect, Color.FromArgb(31, 35, 42), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        if (key.Main.Length > 0)
+        {
+            var size = key.Main.Length <= 1 ? 13.8F : key.Main.Length <= 4 ? 9.2F : 8.4F;
+            var align = key.Align switch
+            {
+                LabelAlign.Left => ContentAlignment.BottomLeft,
+                LabelAlign.Right => ContentAlignment.BottomRight,
+                _ => key.Top.Length > 0 ? ContentAlignment.BottomCenter : ContentAlignment.MiddleCenter,
+            };
+            var inset = key.Align == LabelAlign.Center ? new Padding(0, 0, 0, key.Top.Length > 0 ? 5 : 0) : new Padding(10, 0, 10, 8);
+            DrawText(graphics, key.Main, rect, KeyTextColor, size, align, inset);
+        }
+
+        if (key.Bottom.Length > 0)
+        {
+            DrawText(graphics, key.Bottom, rect, KeyTextColor, 8.2F, ContentAlignment.BottomCenter, new Padding(0, 0, 0, 5));
+        }
     }
 
     private static KeyboardKey[][] KeyboardRows() =>
     [
-        [Key("esc", 1.1F), Key("F1", 1), Key("F2", 1), Key("F3", 1), Key("F4", 1), Key("F5", 1), Key("F6", 1), Key("F7", 1), Key("F8", 1), Key("F9", 1), Key("F10", 1), Key("F11", 1), Key("F12", 1), Key("touchid", 1.1F)],
-        [Key("`", 1), Key("1", 1), Key("2", 1), Key("3", 1), Key("4", 1), Key("5", 1), Key("6", 1), Key("7", 1), Key("8", 1), Key("9", 1), Key("0", 1), Key("-", 1), Key("=", 1), Key("del", 1.6F)],
-        [Key("tab", 1.45F), Key("Q", 1), Key("W", 1), Key("E", 1), Key("R", 1), Key("T", 1), Key("Y", 1), Key("U", 1), Key("I", 1), Key("O", 1), Key("P", 1), Key("[", 1), Key("]", 1), Key("\\", 1.15F)],
-        [Key("caps", 1.7F), Key("A", 1), Key("S", 1), Key("D", 1), Key("F", 1), Key("G", 1), Key("H", 1), Key("J", 1), Key("K", 1), Key("L", 1), Key(";", 1), Key("'", 1), Key("return", 1.95F)],
-        [Key("shift", 2.2F), Key("Z", 1), Key("X", 1), Key("C", 1), Key("V", 1), Key("B", 1), Key("N", 1), Key("M", 1), Key(",", 1), Key(".", 1), Key("/", 1), Key("shift", 2.35F)],
-        [Key("fn", 1), Key("ctrl", 1.22F), Key("opt", 1.22F), Key("cmd", 1.55F), Key("", 5.35F), Key("cmd", 1.55F), Key("opt", 1.22F), Key("<", 1), Key("updown", 1), Key(">", 1)],
+        [Key("esc", 1.55F, align: LabelAlign.Left), Key("F1", 1, glyph: KeyGlyph.BrightnessDown), Key("F2", 1, glyph: KeyGlyph.BrightnessUp), Key("F3", 1, glyph: KeyGlyph.MissionControl), Key("F4", 1, glyph: KeyGlyph.Search), Key("F5", 1, glyph: KeyGlyph.Microphone), Key("F6", 1, glyph: KeyGlyph.Moon), Key("F7", 1, glyph: KeyGlyph.Rewind), Key("F8", 1, glyph: KeyGlyph.PlayPause), Key("F9", 1, glyph: KeyGlyph.Forward), Key("F10", 1, glyph: KeyGlyph.VolumeMute), Key("F11", 1, glyph: KeyGlyph.VolumeDown), Key("F12", 1, glyph: KeyGlyph.VolumeUp), Key("", 1.25F, glyph: KeyGlyph.Lock)],
+        [Key("\\", 1.05F, top: "~"), Key("1", 1, top: "!"), Key("2", 1, top: "@"), Key("3", 1, top: "#"), Key("4", 1, top: "$"), Key("5", 1, top: "%"), Key("6", 1, top: "^"), Key("7", 1, top: "&"), Key("8", 1, top: "*"), Key("9", 1, top: "("), Key("0", 1, top: ")"), Key("-", 1, top: "_"), Key("=", 1, top: "+"), Key("delete", 1.65F, align: LabelAlign.Right)],
+        [Key("tab", 1.55F, align: LabelAlign.Left), Key("Q", 1), Key("W", 1), Key("E", 1), Key("R", 1), Key("T", 1), Key("Y", 1), Key("U", 1), Key("I", 1), Key("O", 1), Key("P", 1), Key("[", 1, top: "{"), Key("]", 1, top: "}"), Key("\\", 1.25F, top: "|")],
+        [Key("caps lock", 1.85F, align: LabelAlign.Left), Key("A", 1), Key("S", 1), Key("D", 1), Key("F", 1), Key("G", 1), Key("H", 1), Key("J", 1), Key("K", 1), Key("L", 1), Key(";", 1, top: ":"), Key("'", 1, top: "\""), Key("return", 1.95F, align: LabelAlign.Right)],
+        [Key("shift", 2.55F, align: LabelAlign.Left), Key("Z", 1), Key("X", 1), Key("C", 1), Key("V", 1), Key("B", 1), Key("N", 1), Key("M", 1), Key(",", 1, top: "<"), Key(".", 1, top: ">"), Key("/", 1, top: "?"), Key("shift", 2.55F, align: LabelAlign.Right)],
+        [Key("", 1.05F, glyph: KeyGlyph.Globe), Key("control", 1.05F, glyph: KeyGlyph.Control), Key("option", 1.05F, glyph: KeyGlyph.Option), Key("command", 1.35F, glyph: KeyGlyph.Command), Key("", 5.55F), Key("command", 1.35F, glyph: KeyGlyph.Command), Key("option", 1.05F, glyph: KeyGlyph.Option), Key("", 1, glyph: KeyGlyph.LeftArrow), Key("", 1, glyph: KeyGlyph.UpDown), Key("", 1, glyph: KeyGlyph.RightArrow)],
     ];
 
-    private static KeyboardKey Key(string text, float units)
+    private static KeyboardKey Key(string main, float units, string top = "", string bottom = "", KeyGlyph glyph = KeyGlyph.None, LabelAlign align = LabelAlign.Center)
     {
-        return new KeyboardKey(text, units);
+        return new KeyboardKey(main, top, bottom, units, glyph, align);
+    }
+
+    private static Color KeyTextColor => Color.FromArgb(126, 130, 136);
+
+    private static void DrawText(Graphics graphics, string text, Rectangle rect, Color color, float size, ContentAlignment align, Padding inset)
+    {
+        using var font = new Font("Segoe UI", size);
+        var area = new Rectangle(rect.Left + inset.Left, rect.Top + inset.Top, rect.Width - inset.Left - inset.Right, rect.Height - inset.Top - inset.Bottom);
+        var flags = TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding;
+        flags |= align switch
+        {
+            ContentAlignment.TopCenter or ContentAlignment.MiddleCenter or ContentAlignment.BottomCenter => TextFormatFlags.HorizontalCenter,
+            ContentAlignment.TopRight or ContentAlignment.MiddleRight or ContentAlignment.BottomRight => TextFormatFlags.Right,
+            _ => TextFormatFlags.Left,
+        };
+        flags |= align switch
+        {
+            ContentAlignment.TopLeft or ContentAlignment.TopCenter or ContentAlignment.TopRight => TextFormatFlags.Top,
+            ContentAlignment.BottomLeft or ContentAlignment.BottomCenter or ContentAlignment.BottomRight => TextFormatFlags.Bottom,
+            _ => TextFormatFlags.VerticalCenter,
+        };
+        TextRenderer.DrawText(graphics, text, font, area, color, flags);
+    }
+
+    private static void DrawGlyph(Graphics graphics, Rectangle rect, KeyGlyph glyph)
+    {
+        var color = KeyTextColor;
+        using var pen = new Pen(color, Math.Max(1F, rect.Height * 0.045F))
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+        };
+        using var brush = new SolidBrush(color);
+        var cx = rect.Left + rect.Width / 2;
+        var top = rect.Top + Math.Max(6, rect.Height / 6);
+        var glyphRect = new Rectangle(cx - rect.Width / 8, top, rect.Width / 4, rect.Height / 4);
+
+        switch (glyph)
+        {
+            case KeyGlyph.BrightnessDown:
+            case KeyGlyph.BrightnessUp:
+                DrawSun(graphics, cx, top + rect.Height / 8, Math.Max(3, rect.Height / (glyph == KeyGlyph.BrightnessUp ? 11 : 14)), pen);
+                break;
+            case KeyGlyph.MissionControl:
+                graphics.DrawRectangle(pen, cx - 8, top + 2, 7, 7);
+                graphics.DrawRectangle(pen, cx + 2, top + 2, 7, 11);
+                graphics.DrawRectangle(pen, cx - 8, top + 13, 11, 7);
+                break;
+            case KeyGlyph.Search:
+                graphics.DrawEllipse(pen, glyphRect);
+                graphics.DrawLine(pen, glyphRect.Right - 1, glyphRect.Bottom - 1, glyphRect.Right + 7, glyphRect.Bottom + 7);
+                break;
+            case KeyGlyph.Microphone:
+                using (var micPath = Rounded(new Rectangle(cx - 4, top, 8, 15), 4))
+                {
+                    graphics.DrawPath(pen, micPath);
+                }
+
+                graphics.DrawLine(pen, cx - 10, top + 11, cx + 10, top + 11);
+                graphics.DrawLine(pen, cx, top + 16, cx, top + 22);
+                break;
+            case KeyGlyph.Moon:
+                graphics.FillEllipse(brush, new Rectangle(cx - 9, top, 16, 16));
+                using (var cutout = new SolidBrush(Color.FromArgb(248, 250, 253)))
+                {
+                    graphics.FillEllipse(cutout, new Rectangle(cx - 3, top - 2, 16, 16));
+                }
+                break;
+            case KeyGlyph.Rewind:
+                DrawText(graphics, "<<", rect, color, 10F, ContentAlignment.TopCenter, new Padding(0, 7, 0, 0));
+                break;
+            case KeyGlyph.PlayPause:
+                DrawText(graphics, ">| |", rect, color, 8.5F, ContentAlignment.TopCenter, new Padding(0, 7, 0, 0));
+                break;
+            case KeyGlyph.Forward:
+                DrawText(graphics, ">>", rect, color, 10F, ContentAlignment.TopCenter, new Padding(0, 7, 0, 0));
+                break;
+            case KeyGlyph.VolumeMute:
+            case KeyGlyph.VolumeDown:
+            case KeyGlyph.VolumeUp:
+                DrawSpeaker(graphics, cx - 10, top + 7, glyph == KeyGlyph.VolumeMute ? 0 : glyph == KeyGlyph.VolumeDown ? 1 : 2, pen, brush);
+                break;
+            case KeyGlyph.Lock:
+                graphics.DrawArc(pen, cx - 7, top + 3, 14, 14, 180, 180);
+                using (var lockPath = Rounded(new Rectangle(cx - 9, top + 13, 18, 14), 3))
+                {
+                    graphics.DrawPath(pen, lockPath);
+                }
+
+                break;
+            case KeyGlyph.Globe:
+                DrawGlobe(graphics, new Rectangle(cx - 9, rect.Bottom - 25, 18, 18), pen);
+                break;
+            case KeyGlyph.Control:
+                DrawText(graphics, "^", rect, color, 12F, ContentAlignment.TopCenter, new Padding(0, 4, 0, 0));
+                break;
+            case KeyGlyph.Option:
+                graphics.DrawLine(pen, rect.Left + 13, rect.Top + 12, rect.Left + 22, rect.Top + 12);
+                graphics.DrawLine(pen, rect.Left + 22, rect.Top + 12, rect.Left + 29, rect.Top + 26);
+                graphics.DrawLine(pen, rect.Left + 29, rect.Top + 26, rect.Left + 38, rect.Top + 26);
+                break;
+            case KeyGlyph.Command:
+                DrawCommand(graphics, cx, top + 11, rect.Height / 8, pen);
+                break;
+            case KeyGlyph.UpArrow:
+                DrawArrow(graphics, rect, ArrowDirection.Up, brush);
+                break;
+            case KeyGlyph.DownArrow:
+                DrawArrow(graphics, rect, ArrowDirection.Down, brush);
+                break;
+            case KeyGlyph.LeftArrow:
+                DrawArrow(graphics, rect, ArrowDirection.Left, brush);
+                break;
+            case KeyGlyph.RightArrow:
+                DrawArrow(graphics, rect, ArrowDirection.Right, brush);
+                break;
+        }
+    }
+
+    private static void DrawSun(Graphics graphics, int cx, int cy, int radius, Pen pen)
+    {
+        graphics.DrawEllipse(pen, cx - radius, cy - radius, radius * 2, radius * 2);
+        for (var i = 0; i < 8; i++)
+        {
+            var angle = Math.PI * 2 * i / 8;
+            var x1 = cx + (int)Math.Round(Math.Cos(angle) * (radius + 4));
+            var y1 = cy + (int)Math.Round(Math.Sin(angle) * (radius + 4));
+            var x2 = cx + (int)Math.Round(Math.Cos(angle) * (radius + 8));
+            var y2 = cy + (int)Math.Round(Math.Sin(angle) * (radius + 8));
+            graphics.DrawLine(pen, x1, y1, x2, y2);
+        }
+    }
+
+    private static void DrawSpeaker(Graphics graphics, int x, int y, int waves, Pen pen, Brush brush)
+    {
+        var points = new[]
+        {
+            new Point(x, y + 8),
+            new Point(x + 6, y + 8),
+            new Point(x + 13, y + 3),
+            new Point(x + 13, y + 21),
+            new Point(x + 6, y + 16),
+            new Point(x, y + 16),
+        };
+        graphics.FillPolygon(brush, points);
+        for (var i = 0; i < waves; i++)
+        {
+            graphics.DrawArc(pen, x + 10 + i * 5, y + 5 - i * 2, 10 + i * 5, 14 + i * 4, -42, 84);
+        }
+    }
+
+    private static void DrawCommand(Graphics graphics, int cx, int cy, int radius, Pen pen)
+    {
+        var loop = Math.Max(4, radius);
+        var offset = Math.Max(7, loop + 3);
+        graphics.DrawEllipse(pen, cx - offset - loop, cy - offset - loop, loop * 2, loop * 2);
+        graphics.DrawEllipse(pen, cx + offset - loop, cy - offset - loop, loop * 2, loop * 2);
+        graphics.DrawEllipse(pen, cx - offset - loop, cy + offset - loop, loop * 2, loop * 2);
+        graphics.DrawEllipse(pen, cx + offset - loop, cy + offset - loop, loop * 2, loop * 2);
+        graphics.DrawLine(pen, cx - offset, cy - offset + loop, cx - offset, cy + offset - loop);
+        graphics.DrawLine(pen, cx + offset, cy - offset + loop, cx + offset, cy + offset - loop);
+        graphics.DrawLine(pen, cx - offset + loop, cy - offset, cx + offset - loop, cy - offset);
+        graphics.DrawLine(pen, cx - offset + loop, cy + offset, cx + offset - loop, cy + offset);
+    }
+
+    private static void DrawArrow(Graphics graphics, Rectangle rect, ArrowDirection direction, Brush brush)
+    {
+        var cx = rect.Left + rect.Width / 2;
+        var cy = rect.Top + rect.Height / 2;
+        var size = Math.Max(6, Math.Min(rect.Width, rect.Height) / 5);
+        Point[] points = direction switch
+        {
+            ArrowDirection.Up => new[]
+            {
+                new Point(cx, cy - size),
+                new Point(cx - size, cy + size / 2),
+                new Point(cx + size, cy + size / 2),
+            },
+            ArrowDirection.Down => new[]
+            {
+                new Point(cx, cy + size),
+                new Point(cx - size, cy - size / 2),
+                new Point(cx + size, cy - size / 2),
+            },
+            ArrowDirection.Left => new[]
+            {
+                new Point(cx - size, cy),
+                new Point(cx + size / 2, cy - size),
+                new Point(cx + size / 2, cy + size),
+            },
+            _ => new[]
+            {
+                new Point(cx + size, cy),
+                new Point(cx - size / 2, cy - size),
+                new Point(cx - size / 2, cy + size),
+            },
+        };
+        graphics.FillPolygon(brush, points);
+    }
+
+    private static void DrawGlobe(Graphics graphics, Rectangle rect, Pen pen)
+    {
+        graphics.DrawEllipse(pen, rect);
+        graphics.DrawLine(pen, rect.Left + 2, rect.Top + rect.Height / 2, rect.Right - 2, rect.Top + rect.Height / 2);
+        graphics.DrawArc(pen, rect.Left + 4, rect.Top + 1, rect.Width - 8, rect.Height - 2, 90, 180);
+        graphics.DrawArc(pen, rect.Left + 4, rect.Top + 1, rect.Width - 8, rect.Height - 2, -90, 180);
     }
 
     private static GraphicsPath Rounded(Rectangle rect, int radius)

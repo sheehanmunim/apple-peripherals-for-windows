@@ -2,6 +2,7 @@ using MagicTrackpad.Configuration;
 using MagicTrackpad.Gestures;
 using MagicTrackpad.Hid;
 using MagicTrackpad.Input;
+using MagicTrackpad.Keyboard;
 
 namespace MagicTrackpad.SelfTest;
 
@@ -99,6 +100,9 @@ internal static class SelfTests
         var path = Path.Combine(Path.GetTempPath(), "magic-trackpad-native-self-test.json");
         var config = new AppConfig();
         Require(config.Keyboard.FnGlobe == "Ctrl");
+        Require(KeyboardRemapper.IsHeldModifierAction(config.Keyboard.FnGlobe));
+        Require(KeyboardRemapper.ModifierTarget(config.Keyboard.FnGlobe, 0x86).SequenceEqual(new ushort[] { 0xA2 }));
+        Require(KeyboardRemapper.ModifierTarget(config.Keyboard.FnGlobe, 0x87).SequenceEqual(new ushort[] { 0xA3 }));
         config.Gestures.PointerSensitivity = 0.73;
         config.Gestures.SwapLeftRightButtons = true;
         config.Keyboard.FKeyMode = "custom";
