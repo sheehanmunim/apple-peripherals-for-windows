@@ -25,7 +25,7 @@ internal sealed class RawInputWindow : NativeWindow, IDisposable
         if (message.Msg == NativeMethods.WM_INPUT)
         {
             var read = ReadRawInput(message.LParam);
-            if (read != null && devicesByHandle.TryGetValue(read.Value.DeviceHandle, out var device) && device.IsAppleMagicTrackpad)
+            if (read != null && devicesByHandle.TryGetValue(read.Value.DeviceHandle, out var device) && ShouldDispatchRawReport(device))
             {
                 DispatchReports(device, read.Value.Payload);
             }
@@ -40,6 +40,9 @@ internal sealed class RawInputWindow : NativeWindow, IDisposable
 
         base.WndProc(ref message);
     }
+
+    internal static bool ShouldDispatchRawReport(HidDeviceInfo device) =>
+        device.IsAppleMagicTrackpad || device.IsAppleKeyboard;
 
     public void RefreshDevices()
     {

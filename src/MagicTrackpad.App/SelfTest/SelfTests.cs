@@ -3,6 +3,7 @@ using MagicTrackpad.Gestures;
 using MagicTrackpad.Hid;
 using MagicTrackpad.Input;
 using MagicTrackpad.Keyboard;
+using MagicTrackpad.Runtime;
 
 namespace MagicTrackpad.SelfTest;
 
@@ -66,6 +67,17 @@ internal static class SelfTests
         Require(parsed.ProductId == DeviceCatalog.MagicKeyboardBluetooth);
         Require(device.IsAppleKeyboard);
         Require(!device.IsAppleMagicTrackpad);
+        Require(RawInputWindow.ShouldDispatchRawReport(device));
+
+        var trackpadName = @"HID\VID_05AC&PID_0324&COL02\9&102B385&0&0000";
+        var trackpad = new HidDeviceInfo(IntPtr.Zero, trackpadName, DeviceCatalog.AppleUsbVendorId, DeviceCatalog.MagicTrackpad2UsbC, null, 0x0D, 0x05);
+        Require(trackpad.IsAppleMagicTrackpad);
+        Require(RawInputWindow.ShouldDispatchRawReport(trackpad));
+
+        var other = new HidDeviceInfo(IntPtr.Zero, @"HID\VID_045E&PID_0000&COL01", 0x045E, 0x0000, null, 0x01, 0x06);
+        Require(!other.IsAppleKeyboard);
+        Require(!other.IsAppleMagicTrackpad);
+        Require(!RawInputWindow.ShouldDispatchRawReport(other));
     }
 
     private static void TestGestures()
@@ -117,6 +129,8 @@ internal static class SelfTests
         Require(KeyboardRemapper.ModifierTarget(config.Keyboard.RightCommand, 0x5C).SequenceEqual(new ushort[] { 0xA3 }));
         Require(KeyboardRemapper.TryGetAppleFnState([0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00], out var bootFnDown) && bootFnDown);
         Require(KeyboardRemapper.TryGetAppleFnState([0x01, 0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00], out var reportFnDown) && reportFnDown);
+        Require(KeyboardRemapper.TryGetAppleFnState([0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], out var paddedBootFnDown) && paddedBootFnDown);
+        Require(KeyboardRemapper.TryGetAppleFnState([0x01, 0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], out var paddedReportFnDown) && paddedReportFnDown);
         Require(KeyboardRemapper.TryGetAppleFnState([0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00], out var fnUp) && !fnUp);
         config.Gestures.PointerSensitivity = 0.73;
         config.Gestures.SwapLeftRightButtons = true;

@@ -264,16 +264,16 @@ internal sealed class KeyboardRemapper : IDisposable
     {
         down = false;
 
-        if (report.Length == 8)
-        {
-            down = report[1] != 0;
-            return report[1] <= 1;
-        }
-
-        if (report.Length == 9)
+        if (report.Length >= 9 && report[0] == 0x01)
         {
             down = report[2] != 0;
             return report[2] <= 1;
+        }
+
+        if (report.Length >= 8)
+        {
+            down = report[1] != 0;
+            return report[1] <= 1;
         }
 
         return false;

@@ -175,7 +175,7 @@ internal static class Installer
 {
     public const string ProductName = "Apple Peripherals for Windows";
     private const string Publisher = "Apple Peripherals for Windows";
-    private const string Version = "0.3.2";
+    private const string Version = "0.3.3";
     private const string TaskName = "ApplePeripheralsBridge";
     private const string DriverPackageUrl = "https://github.com/vitoplantamura/MagicTrackpad2ForWindows/releases/download/v2.0/MT2FW11-20260223-MSSigned.zip";
     private const string DriverResourceName = "MagicTrackpad2ForWindows-MSSigned.zip";
