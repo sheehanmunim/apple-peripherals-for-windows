@@ -1,0 +1,105 @@
+; Apple Magic Keyboard HID lower-filter driver for Apple Peripherals for Windows.
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=HIDClass
+ClassGuid={745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+Provider=%Provider%
+CatalogFile=AppleKeyboardFilter.cat
+DriverPackageDisplayName=%DriverPackageDisplayName%
+DriverPackageType=PlugAndPlay
+DriverVer=06/04/2026,0.4.0.0
+PnpLockdown=1
+
+[ControlFlags]
+ExcludeFromSelect=*
+
+[DestinationDirs]
+DefaultDestDir=12
+DriverCopyFiles=12
+
+[SourceDisksNames]
+1=%DiskName%,,,
+
+[SourceDisksFiles]
+AppleKeyboardFilter.sys=1
+
+[Manufacturer]
+%Manufacturer%=AppleKeyboardFilter,NTamd64,NTarm64
+
+[AppleKeyboardFilter.NTamd64]
+%MagicKeyboard.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0320
+%MagicKeyboard.UsbC.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_0321&MI_01
+%MagicKeyboard.Legacy.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0267
+%MagicKeyboard.Legacy.Usb.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_0267&MI_01
+%MagicKeyboard.Numeric.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&026C
+%MagicKeyboard.Numeric.Usb.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_026C&MI_01
+
+[AppleKeyboardFilter.NTarm64]
+%MagicKeyboard.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0320
+%MagicKeyboard.UsbC.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_0321&MI_01
+%MagicKeyboard.Legacy.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0267
+%MagicKeyboard.Legacy.Usb.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_0267&MI_01
+%MagicKeyboard.Numeric.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&026C
+%MagicKeyboard.Numeric.Usb.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_026C&MI_01
+
+[UsbKeyboard_Install.NT]
+Include=input.inf
+Needs=HID_Inst.NT
+CopyFiles=DriverCopyFiles
+
+[UsbKeyboard_Install.NT.HW]
+AddReg=LowerFilter_AddReg
+
+[UsbKeyboard_Install.NT.Services]
+Include=input.inf
+Needs=HID_Inst.NT.Services
+AddService=AppleKeyboardFilter,,AppleKeyboardFilter_ServiceInstall
+
+[BthKeyboard_Install.NT]
+Include=hidbth.inf
+Needs=HIDBTH_Inst.NT
+CopyFiles=DriverCopyFiles
+
+[BthKeyboard_Install.NT.HW]
+Include=keyboard.inf
+Needs=HID_Keyboard_Inst.NT.HW
+AddReg=LowerFilter_AddReg
+
+[BthKeyboard_Install.NT.Services]
+Include=hidbth.inf
+Needs=HIDBTH_Inst.NT.Services
+AddService=AppleKeyboardFilter,,AppleKeyboardFilter_ServiceInstall
+
+[DriverCopyFiles]
+AppleKeyboardFilter.sys
+
+[LowerFilter_AddReg]
+HKR,,"LowerFilters",0x00010008,"AppleKeyboardFilter"
+
+[AppleKeyboardFilter_ServiceInstall]
+DisplayName=%ServiceDescription%
+ServiceType=%SERVICE_KERNEL_DRIVER%
+StartType=%SERVICE_DEMAND_START%
+ErrorControl=%SERVICE_ERROR_NORMAL%
+ServiceBinary=%12%\AppleKeyboardFilter.sys
+AddReg=AppleKeyboardFilter_ServiceSettings
+
+[AppleKeyboardFilter_ServiceSettings]
+HKR,,EmitFnAsF23,0x00010001,1
+
+[Strings]
+Provider="Apple Peripherals for Windows"
+Manufacturer="Apple Peripherals for Windows"
+DriverPackageDisplayName="Apple Keyboard Filter"
+DiskName="Apple Keyboard Filter Install Disk"
+ServiceDescription="Apple Keyboard Filter"
+MagicKeyboard.Bluetooth.DevDesc="Apple Magic Keyboard Bluetooth Globe/Fn Filter"
+MagicKeyboard.UsbC.DevDesc="Apple Magic Keyboard USB-C Globe/Fn Filter"
+MagicKeyboard.Legacy.Bluetooth.DevDesc="Apple Magic Keyboard Bluetooth Globe/Fn Filter"
+MagicKeyboard.Legacy.Usb.DevDesc="Apple Magic Keyboard USB Globe/Fn Filter"
+MagicKeyboard.Numeric.Bluetooth.DevDesc="Apple Magic Keyboard Numeric Bluetooth Globe/Fn Filter"
+MagicKeyboard.Numeric.Usb.DevDesc="Apple Magic Keyboard Numeric USB Globe/Fn Filter"
+SERVICE_KERNEL_DRIVER=1
+SERVICE_DEMAND_START=3
+SERVICE_ERROR_NORMAL=1
