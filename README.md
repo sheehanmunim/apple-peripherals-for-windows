@@ -88,9 +88,9 @@ dotnet run --project .\src\MagicTrackpad.App\MagicTrackpad.App.csproj -c Release
 
 ## Install
 
-Download `ApplePeripheralsSetup-win-x64.exe` from the latest GitHub release and run it. The setup app installs the background bridge and settings app, starts the bridge for the current session, creates Start Menu shortcuts, and registers Apple Peripherals for Windows in Windows Apps / Control Panel for uninstall.
+Download `ApplePeripheralsSetup-win-x64.exe` from the latest GitHub release and run it. The setup app is self-contained: it bundles the app runtime, settings app, background bridge, and Microsoft-signed Magic Trackpad Precision Touchpad driver package. It starts the bridge for the current session, creates Start Menu shortcuts, and registers Apple Peripherals for Windows in Windows Apps / Control Panel for uninstall.
 
-If you run setup as Administrator, it can also install or update the Microsoft-signed Magic Trackpad Precision Touchpad driver. A restart may be required after the driver install.
+Windows may show an Administrator/UAC prompt because setup installs the trackpad driver. A restart may be required after the driver install.
 
 Installed files are written to:
 

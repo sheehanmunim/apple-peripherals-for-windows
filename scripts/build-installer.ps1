@@ -26,6 +26,8 @@ $PayloadDir = Join-Path $ArtifactsRoot "payload"
 $AppPayloadDir = Join-Path $PayloadDir "app"
 $SetupOutDir = Join-Path $ArtifactsRoot "setup"
 $PayloadZip = Join-Path $ArtifactsRoot "ApplePeripheralsPayload.zip"
+$DriverZip = Join-Path $ArtifactsRoot "MagicTrackpad2ForWindows-MSSigned.zip"
+$DriverPackageUrl = "https://github.com/vitoplantamura/MagicTrackpad2ForWindows/releases/download/v2.0/MT2FW11-20260223-MSSigned.zip"
 $InstallerName = "ApplePeripheralsSetup-$Runtime.exe"
 $InstallerPath = Join-Path $ArtifactsRoot $InstallerName
 
@@ -35,6 +37,9 @@ if (Test-Path $ArtifactsRoot) {
 
 New-Item -ItemType Directory -Force -Path $AppPayloadDir | Out-Null
 New-Item -ItemType Directory -Force -Path $SetupOutDir | Out-Null
+
+Write-Host "Downloading signed Precision Touchpad driver package..."
+Invoke-WebRequest -Uri $DriverPackageUrl -OutFile $DriverZip
 
 Write-Host "Publishing app payload..."
 dotnet publish $AppProject `
@@ -60,6 +65,7 @@ dotnet publish $SetupProject `
     -p:EnableCompressionInSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:PayloadZip="$PayloadZip" `
+    -p:DriverZip="$DriverZip" `
     -o $SetupOutDir
 
 $BuiltInstaller = Join-Path $SetupOutDir "ApplePeripheralsSetup.exe"

@@ -90,7 +90,7 @@ internal sealed class SetupForm : Form
 
         var body = new Label
         {
-            Text = "Install the settings app and background bridge for Magic Trackpad and Magic Keyboard support.",
+            Text = "Install the settings app, background bridge, and bundled Magic Trackpad driver for Magic Trackpad and Magic Keyboard support.",
             AutoSize = false,
             Height = 64,
             Dock = DockStyle.Top,
@@ -98,8 +98,8 @@ internal sealed class SetupForm : Form
         };
 
         driverCheck.Text = Installer.IsAdministrator
-            ? "Install or update the Magic Trackpad Precision Touchpad driver"
-            : "Precision Touchpad driver requires running setup as Administrator";
+            ? "Install or update the Magic Trackpad Precision Touchpad driver (included)"
+            : "Precision Touchpad driver requires Administrator access";
         driverCheck.Checked = Installer.IsAdministrator;
         driverCheck.Enabled = Installer.IsAdministrator;
         driverCheck.AutoSize = false;
@@ -175,9 +175,10 @@ internal static class Installer
 {
     public const string ProductName = "Apple Peripherals for Windows";
     private const string Publisher = "Apple Peripherals for Windows";
-    private const string Version = "0.3.1";
+    private const string Version = "0.3.2";
     private const string TaskName = "ApplePeripheralsBridge";
     private const string DriverPackageUrl = "https://github.com/vitoplantamura/MagicTrackpad2ForWindows/releases/download/v2.0/MT2FW11-20260223-MSSigned.zip";
+    private const string DriverResourceName = "MagicTrackpad2ForWindows-MSSigned.zip";
     private const string UninstallRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\ApplePeripheralsForWindows";
 
     private static readonly string InstallRoot = Path.Combine(
@@ -396,13 +397,24 @@ internal static class Installer
         var zipPath = Path.Combine(driversDir, "MagicTrackpad2ForWindows-MSSigned.zip");
         var extractRoot = Path.Combine(driversDir, "MagicTrackpad2ForWindows-MSSigned");
 
-        using (var client = new HttpClient())
-        using (var response = client.GetAsync(DriverPackageUrl).GetAwaiter().GetResult())
+        using (var embedded = Assembly.GetExecutingAssembly().GetManifestResourceStream(DriverResourceName))
         {
-            response.EnsureSuccessStatusCode();
-            using var source = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
-            using var target = File.Create(zipPath);
-            source.CopyTo(target);
+            if (embedded != null)
+            {
+                progress.Report("Extracting bundled Precision Touchpad driver package...");
+                using var target = File.Create(zipPath);
+                embedded.CopyTo(target);
+            }
+            else
+            {
+                progress.Report("Downloading Precision Touchpad driver package...");
+                using var client = new HttpClient();
+                using var response = client.GetAsync(DriverPackageUrl).GetAwaiter().GetResult();
+                response.EnsureSuccessStatusCode();
+                using var source = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
+                using var target = File.Create(zipPath);
+                source.CopyTo(target);
+            }
         }
 
         DeleteDirectoryIfExists(extractRoot);
