@@ -21,7 +21,7 @@ internal sealed class DirectHidReportReader : IDisposable
     public void UpdateDevices(IEnumerable<HidDeviceInfo> devices)
     {
         var candidates = devices
-            .Where(DeviceActions.IsReadableTrackpadCollection)
+            .Where(device => DeviceActions.IsReadableTrackpadCollection(device) || DeviceActions.IsReadableAppleKeyboardCollection(device))
             .GroupBy(device => device.Name, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();

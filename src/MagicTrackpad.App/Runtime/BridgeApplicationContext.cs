@@ -36,6 +36,7 @@ internal sealed class BridgeApplicationContext : ApplicationContext
         injector = dryRun ? new DryRunInputInjector() : new Win32InputInjector();
         engine = new GestureEngine(injector, config.Gestures);
         keyboard = new KeyboardRemapper(injector, config.Keyboard);
+        keyboard.SetAppleKeyboardPresent(DeviceCatalog.FindAppleKeyboards(DeviceActions.EnumerateRawInputDevices()).Count > 0);
         reloadSignal = ConfigReloadSignal.Create(configPath);
         reloadRegistration = ThreadPool.RegisterWaitForSingleObject(
             reloadSignal,
@@ -171,6 +172,10 @@ internal sealed class BridgeApplicationContext : ApplicationContext
             }
 
             DeviceBattery.TryCacheReport(device, report);
+            if (device.IsAppleKeyboard)
+            {
+                keyboard.ProcessKeyboardReport(device, report);
+            }
 
             if (config.LogRawReports)
             {

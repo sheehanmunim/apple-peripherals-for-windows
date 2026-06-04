@@ -34,6 +34,12 @@ function Stop-MagicTrackpadProcesses {
         }
 }
 
+function Test-Administrator {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
 if (!(Get-Command dotnet -ErrorAction SilentlyContinue)) {
     throw ".NET 8 SDK is required to build and install MagicTrackpad.exe. Install Microsoft.DotNet.SDK.8, then run this script again."
 }
@@ -95,7 +101,8 @@ $TaskInstalled = $false
 try {
     $Action = New-ScheduledTaskAction -Execute $ExePath -Argument "--bridge --config `"$ConfigPath`"" -WorkingDirectory $AppDir
     $Trigger = New-ScheduledTaskTrigger -AtLogOn
-    $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+    $RunLevel = if (Test-Administrator) { "Highest" } else { "Limited" }
+    $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel $RunLevel
     $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 10 -RestartInterval (New-TimeSpan -Minutes 1) -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Seconds 0)
     Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
     Start-ScheduledTask -TaskName $TaskName

@@ -143,6 +143,22 @@ public static class DeviceActions
             device.Name.Contains("COL03", StringComparison.OrdinalIgnoreCase);
     }
 
+    public static bool IsReadableAppleKeyboardCollection(HidDeviceInfo device)
+    {
+        if (!device.IsAppleKeyboard)
+        {
+            return false;
+        }
+
+        if (device.UsagePage == 0x01 && device.Usage == 0x06)
+        {
+            return true;
+        }
+
+        return device.Name.Contains("COL01", StringComparison.OrdinalIgnoreCase) ||
+            device.Name.Contains("COL02", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static string PhysicalKey(string name)
     {
         var marker = name.IndexOf("&Col", StringComparison.OrdinalIgnoreCase);

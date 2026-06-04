@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using MagicTrackpad.Configuration;
+using MagicTrackpad.Hid;
 using MagicTrackpad.Input;
 using MagicTrackpad.Interop;
 
@@ -28,6 +29,7 @@ internal sealed class KeyboardRemapper : IDisposable
     private readonly HashSet<ushort> suppressedKeyUps = [];
     private KeyboardConfig config;
     private bool appleKeyboardPresent;
+    private bool rawGlobeDown;
     private IntPtr hook;
 
     public KeyboardRemapper(IInputInjector injector, KeyboardConfig config)
@@ -111,6 +113,29 @@ internal sealed class KeyboardRemapper : IDisposable
 
     private bool ShouldApply() =>
         config.Enabled && (!config.OnlyWhenAppleKeyboardPresent || appleKeyboardPresent);
+
+    public void ProcessKeyboardReport(HidDeviceInfo device, byte[] report)
+    {
+        if (!device.IsAppleKeyboard || !ShouldApply() || !TryGetAppleFnState(report, out var globeDown))
+        {
+            return;
+        }
+
+        if (globeDown == rawGlobeDown)
+        {
+            return;
+        }
+
+        rawGlobeDown = globeDown;
+        if (globeDown)
+        {
+            HandleKeyDown(VkF23);
+        }
+        else
+        {
+            HandleKeyUp(VkF23);
+        }
+    }
 
     private bool HandleKeyDown(ushort vk)
     {
@@ -235,6 +260,25 @@ internal sealed class KeyboardRemapper : IDisposable
 
     private static bool IsGlobeKey(ushort vk) => vk is VkF23 or VkF24;
 
+    internal static bool TryGetAppleFnState(byte[] report, out bool down)
+    {
+        down = false;
+
+        if (report.Length == 8)
+        {
+            down = report[1] != 0;
+            return report[1] <= 1;
+        }
+
+        if (report.Length == 9)
+        {
+            down = report[2] != 0;
+            return report[2] <= 1;
+        }
+
+        return false;
+    }
+
     private static bool IsUnchangedAction(string action) =>
         NormalizeAction(action) is "" or "unchanged";
 
@@ -278,6 +322,7 @@ internal sealed class KeyboardRemapper : IDisposable
 
         heldRemaps.Clear();
         suppressedKeyUps.Clear();
+        rawGlobeDown = false;
     }
 
     private void RemoveHook()
