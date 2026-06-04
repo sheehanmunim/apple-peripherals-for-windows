@@ -70,7 +70,7 @@ public sealed class SettingsForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        TryUseDarkTitleBar();
+        TryUseLightTitleBar();
     }
 
     protected override void OnShown(EventArgs e)
@@ -93,17 +93,17 @@ public sealed class SettingsForm : Form
         base.OnFormClosing(e);
     }
 
-    private void TryUseDarkTitleBar()
+    private void TryUseLightTitleBar()
     {
         try
         {
-            var enabled = 1;
+            var enabled = 0;
             _ = DwmSetWindowAttribute(Handle, 20, ref enabled, sizeof(int));
             _ = DwmSetWindowAttribute(Handle, 19, ref enabled, sizeof(int));
         }
         catch
         {
-            // Older Windows builds ignore this; the app body still owns the dark theme.
+            // Older Windows builds ignore this; the app body still owns the light theme.
         }
     }
 
@@ -1295,26 +1295,43 @@ public sealed class SettingsForm : Form
         var page = tabs.TabPages[e.Index];
         var info = page.Tag as DeviceTabInfo;
         var selected = e.State.HasFlag(DrawItemState.Selected);
-        using var background = new SolidBrush(selected ? SurfaceAlt : Shell);
-        e.Graphics.FillRectangle(background, e.Bounds);
-        using var border = new Pen(Stroke);
-        e.Graphics.DrawRectangle(border, e.Bounds.X, e.Bounds.Y, e.Bounds.Width - 1, e.Bounds.Height - 1);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        var bounds = Rectangle.Inflate(e.Bounds, -3, -4);
+        using (var tabPath = Rounded(bounds, 7))
+        using (var background = new SolidBrush(selected ? Surface : SurfaceAlt))
+        using (var border = new Pen(selected ? Stroke : ThemePalette.StrokeSoft))
+        {
+            e.Graphics.FillPath(background, tabPath);
+            e.Graphics.DrawPath(border, tabPath);
+        }
+
         if (selected)
         {
             using var accentLine = new Pen(Accent, 3);
-            e.Graphics.DrawLine(accentLine, e.Bounds.Left + 1, e.Bounds.Bottom - 2, e.Bounds.Right - 2, e.Bounds.Bottom - 2);
+            e.Graphics.DrawLine(accentLine, bounds.Left + 10, bounds.Bottom - 2, bounds.Right - 10, bounds.Bottom - 2);
         }
 
-        using var dot = new SolidBrush(info?.Connected == true ? Accent : Color.FromArgb(88, 88, 88));
-        e.Graphics.FillEllipse(dot, e.Bounds.X + 13, e.Bounds.Y + 10, 14, 14);
+        using var dot = new SolidBrush(info?.Connected == true ? Accent : Color.FromArgb(164, 170, 180));
+        e.Graphics.FillEllipse(dot, bounds.X + 12, bounds.Y + 10, 10, 10);
         TextRenderer.DrawText(
             e.Graphics,
             page.Text,
             Font,
-            new Rectangle(e.Bounds.X + 34, e.Bounds.Y + 5, e.Bounds.Width - 38, e.Bounds.Height - 8),
+            new Rectangle(bounds.X + 30, bounds.Y + 3, bounds.Width - 34, bounds.Height - 5),
             selected ? TextMain : TextMuted,
             TextFormatFlags.EndEllipsis | TextFormatFlags.VerticalCenter);
+    }
+
+    private static GraphicsPath Rounded(Rectangle rect, int radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = radius * 2;
+        path.AddArc(rect.Left, rect.Top, diameter, diameter, 180, 90);
+        path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90);
+        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 
     private static string KeyName(Keys key) => key switch
@@ -1523,20 +1540,20 @@ internal sealed record ActionOption(string Label, string Value)
 
 internal static class ThemePalette
 {
-    public static readonly Color Shell = Color.FromArgb(25, 26, 30);
-    public static readonly Color Surface = Color.FromArgb(34, 35, 40);
-    public static readonly Color SurfaceAlt = Color.FromArgb(44, 46, 52);
-    public static readonly Color SurfaceRaised = Color.FromArgb(54, 56, 63);
-    public static readonly Color Control = Color.FromArgb(19, 20, 24);
-    public static readonly Color ControlHover = Color.FromArgb(45, 57, 76);
-    public static readonly Color ControlPressed = Color.FromArgb(35, 86, 139);
-    public static readonly Color Stroke = Color.FromArgb(75, 78, 88);
-    public static readonly Color StrokeSoft = Color.FromArgb(54, 57, 65);
-    public static readonly Color TextMain = Color.FromArgb(245, 245, 247);
-    public static readonly Color TextMuted = Color.FromArgb(166, 169, 178);
-    public static readonly Color Accent = Color.FromArgb(10, 132, 255);
-    public static readonly Color AccentDim = Color.FromArgb(54, 116, 190);
-    public static readonly Color AccentSurface = Color.FromArgb(31, 50, 76);
+    public static readonly Color Shell = Color.FromArgb(244, 246, 249);
+    public static readonly Color Surface = Color.FromArgb(255, 255, 255);
+    public static readonly Color SurfaceAlt = Color.FromArgb(235, 239, 245);
+    public static readonly Color SurfaceRaised = Color.FromArgb(250, 251, 253);
+    public static readonly Color Control = Color.FromArgb(255, 255, 255);
+    public static readonly Color ControlHover = Color.FromArgb(229, 242, 255);
+    public static readonly Color ControlPressed = Color.FromArgb(205, 228, 255);
+    public static readonly Color Stroke = Color.FromArgb(198, 205, 216);
+    public static readonly Color StrokeSoft = Color.FromArgb(222, 227, 235);
+    public static readonly Color TextMain = Color.FromArgb(29, 29, 31);
+    public static readonly Color TextMuted = Color.FromArgb(102, 109, 119);
+    public static readonly Color Accent = Color.FromArgb(0, 122, 255);
+    public static readonly Color AccentDim = Color.FromArgb(0, 92, 190);
+    public static readonly Color AccentSurface = Color.FromArgb(229, 242, 255);
 }
 
 internal enum DeviceKind
@@ -1556,22 +1573,32 @@ internal sealed class ThemedGroupBox : GroupBox
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        e.Graphics.Clear(BackColor);
+        e.Graphics.Clear(Parent?.BackColor ?? ThemePalette.Shell);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
         var title = Text.Trim();
         var titleSize = TextRenderer.MeasureText(e.Graphics, title, Font, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
-        var titleRect = new Rectangle(16, 0, titleSize.Width + 12, Math.Max(22, titleSize.Height + 2));
-        var top = titleRect.Height / 2;
-
+        var titleRect = new Rectangle(18, 0, titleSize.Width + 12, Math.Max(24, titleSize.Height + 4));
+        var panelRect = new Rectangle(0, titleRect.Height / 2, Width - 1, Height - titleRect.Height / 2 - 1);
+        using var panelPath = Rounded(panelRect, 8);
+        using var fill = new SolidBrush(BackColor);
         using var border = new Pen(ThemePalette.StrokeSoft);
-        e.Graphics.DrawLine(border, 0, top, Math.Max(0, titleRect.Left - 6), top);
-        e.Graphics.DrawLine(border, titleRect.Right + 6, top, Width - 1, top);
-        e.Graphics.DrawLine(border, 0, top, 0, Height - 1);
-        e.Graphics.DrawLine(border, Width - 1, top, Width - 1, Height - 1);
-        e.Graphics.DrawLine(border, 0, Height - 1, Width - 1, Height - 1);
+        e.Graphics.FillPath(fill, panelPath);
+        e.Graphics.DrawPath(border, panelPath);
 
         TextRenderer.DrawText(e.Graphics, title, Font, titleRect, ForeColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+    }
+
+    private static GraphicsPath Rounded(Rectangle rect, int radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = radius * 2;
+        path.AddArc(rect.Left, rect.Top, diameter, diameter, 180, 90);
+        path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90);
+        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 }
 
@@ -1584,7 +1611,7 @@ internal sealed class LevelMeter : Control
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         var bounds = new Rectangle(0, 0, Width - 1, Height - 1);
-        using var background = new SolidBrush(ThemePalette.Control);
+        using var background = new SolidBrush(ThemePalette.SurfaceAlt);
         using var border = new Pen(ThemePalette.StrokeSoft);
         e.Graphics.FillRectangle(background, bounds);
         e.Graphics.DrawRectangle(border, bounds);
@@ -1598,7 +1625,8 @@ internal sealed class LevelMeter : Control
             e.Graphics.FillRectangle(fill, 1, 1, fillWidth, Height - 2);
         }
 
-        TextRenderer.DrawText(e.Graphics, Value is int percent ? $"{percent}%" : "--", Font, bounds, ThemePalette.TextMain, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        var textColor = Value is int percentValue && percentValue > 45 ? Color.White : ThemePalette.TextMain;
+        TextRenderer.DrawText(e.Graphics, Value is int percent ? $"{percent}%" : "--", Font, bounds, textColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
     }
 }
 
