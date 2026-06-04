@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/keyboard-driver.yml"
       - "scripts/build-keyboard-filter-driver.ps1"
+      - "scripts/build-keyboard-driver-submission-cab.ps1"
       - "src/AppleKeyboardFilter.Driver/**"
 
 jobs:
@@ -57,4 +58,35 @@ jobs:
             artifacts/keyboard-filter/**/*.sys
             artifacts/keyboard-filter/**/*.cat
             artifacts/keyboard-filter/*.zip
+          if-no-files-found: error
+
+  package-submission-cab:
+    name: Package attestation submission CAB
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download AMD64 driver package
+        uses: actions/download-artifact@v4
+        with:
+          name: AppleKeyboardFilterDriver-AMD64-unsigned
+          path: artifacts/keyboard-filter-input/AMD64
+
+      - name: Download ARM64 driver package
+        uses: actions/download-artifact@v4
+        with:
+          name: AppleKeyboardFilterDriver-ARM64-unsigned
+          path: artifacts/keyboard-filter-input/ARM64
+
+      - name: Build unsigned attestation CAB
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File .\scripts\build-keyboard-driver-submission-cab.ps1 -Amd64Package .\artifacts\keyboard-filter-input\AMD64 -Arm64Package .\artifacts\keyboard-filter-input\ARM64
+
+      - name: Upload unsigned attestation CAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: AppleKeyboardFilterDriver-attestation-cab-unsigned
+          path: artifacts/keyboard-filter/AppleKeyboardFilterAttestation.cab
           if-no-files-found: error

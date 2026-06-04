@@ -5,9 +5,11 @@ The public setup executable can install the Magic Trackpad Precision Touchpad dr
 ## Full Release With Globe/Fn Support
 
 1. Build the unsigned keyboard driver artifacts with the `keyboard-driver` workflow.
-2. Submit `AppleKeyboardFilterDriver.zip` for Microsoft attestation or HLK signing through the Windows Hardware Developer Program.
-3. Host the signed `AppleKeyboardFilterDriver.zip` at a private or public HTTPS URL.
-4. Run the `release` workflow with:
+2. Download the `AppleKeyboardFilterDriver-attestation-cab-unsigned` artifact, or build it locally with `scripts\build-keyboard-driver-submission-cab.ps1`.
+3. Sign the CAB with the EV or registered code-signing certificate for the Hardware Dev Center account.
+4. Submit the signed CAB for Microsoft attestation or HLK signing through the Windows Hardware Developer Program.
+5. Download the Microsoft-signed driver package from Partner Center and host the signed `AppleKeyboardFilterDriver.zip` at a private or public HTTPS URL.
+6. Run the `release` workflow with:
 
 ```text
 version: v0.4.0
@@ -17,6 +19,8 @@ require_signed_keyboard_driver: true
 ```
 
 The workflow downloads the signed zip, verifies the SHA-256 when provided, checks the package contains AMD64 and ARM64 driver folders, verifies the driver catalog signatures, builds x64 and ARM64 installers, and publishes the GitHub release.
+
+Microsoft's attestation documentation requires a Hardware Developer Program account with an associated certificate, a CAB signed with that certificate, and Partner Center submission. The `keyboard-driver` workflow output is therefore a submission input, not a driver that normal Windows can load.
 
 ## App-Only Release
 

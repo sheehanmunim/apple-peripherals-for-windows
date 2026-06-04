@@ -19,6 +19,7 @@ env/
 logs/
 *.log
 *.etl
+*.rpt
 *.zip
 *.cab
 *.cat

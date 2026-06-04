@@ -60,6 +60,14 @@ gh workflow run keyboard-driver.yml
 
 Those artifacts are for signing/submission only. Do not install them on normal Windows systems until the catalog is trusted by Microsoft attestation/HLK signing or by a local test-signing setup.
 
+The workflow also packages both architecture builds into `AppleKeyboardFilterDriver-attestation-cab-unsigned`. Use that CAB as the input for Hardware Dev Center attestation after signing the CAB with the account's EV or registered code-signing certificate.
+
+Build the CAB locally with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-keyboard-driver-submission-cab.ps1
+```
+
 ## Bundle With Setup
 
 Build the setup `.exe` with the signed keyboard driver package:
