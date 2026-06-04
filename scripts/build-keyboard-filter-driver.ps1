@@ -60,6 +60,8 @@ function Add-WdkToolsToPath {
     if ($env:PATH -notlike "*$toolsRoot*") {
         $env:PATH = "$toolsRoot;$env:PATH"
     }
+
+    return $toolsRoot
 }
 
 $msbuild = Find-MSBuild
@@ -67,12 +69,25 @@ if (!$msbuild) {
     throw "MSBuild was not found. Install Visual Studio Build Tools with the Windows Driver Kit before building AppleKeyboardFilter.sys."
 }
 
-Add-WdkToolsToPath
+$wdkToolsRoot = Add-WdkToolsToPath
 
 Write-Host "Building AppleKeyboardFilter driver ($Configuration|$Platform)..."
-& $msbuild $ProjectPath "/p:Configuration=$Configuration" "/p:Platform=$Platform" /m
-if ($LASTEXITCODE -ne 0) {
-    throw "MSBuild failed with exit code $LASTEXITCODE."
+$msbuildExitCode = 1
+try {
+    if ($wdkToolsRoot) {
+        Push-Location $wdkToolsRoot
+    }
+
+    & $msbuild $ProjectPath "/p:Configuration=$Configuration" "/p:Platform=$Platform" /m
+    $msbuildExitCode = $LASTEXITCODE
+}
+finally {
+    if ($wdkToolsRoot) {
+        Pop-Location
+    }
+}
+if ($msbuildExitCode -ne 0) {
+    throw "MSBuild failed with exit code $msbuildExitCode."
 }
 
 $sys = Get-ChildItem $ProjectDir -Recurse -Filter AppleKeyboardFilter.sys -ErrorAction SilentlyContinue |
@@ -91,7 +106,7 @@ Copy-Item -LiteralPath (Join-Path $ProjectDir "AppleKeyboardFilter.inf") -Destin
 
 $inf2cat = Find-Tool "inf2cat.exe"
 if ($inf2cat) {
-    $os = if ($Platform -eq "ARM64") { "10_ARM64" } else { "10_X64" }
+    $os = if ($Platform -eq "ARM64") { "Server10_ARM64" } else { "Server10_X64" }
     Write-Host "Creating driver catalog with Inf2Cat..."
     & $inf2cat "/driver:$PackageDir" "/os:$os"
     if ($LASTEXITCODE -ne 0) {
