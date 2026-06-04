@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Runtime.InteropServices;
 using MagicTrackpad.Configuration;
 using MagicTrackpad.Hid;
@@ -10,14 +11,14 @@ public sealed class SettingsForm : Form
 {
     private const int LeftColumnWidth = 340;
     private const int MainColumnWidth = 380;
-    private const int KeyboardLeftWidth = 620;
+    private const int KeyboardLeftWidth = 900;
     private const int KeyboardRightWidth = 500;
     private const int TrackpadPageGutter = 36;
     private const int KeyboardPageGutter = 36;
     private const int DevicePageGutter = 20;
     private const int TrackpadStageWidth = 430;
     private const int TrackpadInspectorWidth = 600;
-    private const int KeyboardStageWidth = 520;
+    private const int KeyboardStageWidth = 900;
     private const int KeyboardInspectorWidth = 520;
     private static readonly Color Shell = ThemePalette.Shell;
     private static readonly Color Surface = ThemePalette.Surface;
@@ -327,7 +328,7 @@ public sealed class SettingsForm : Form
         AddHotkey(extra, "KeyboardF18", "F18");
         AddHotkey(extra, "KeyboardF19", "F19");
 
-        void SyncLayout() => FitDeviceLayout(page, grid, stage, inspector, KeyboardStageWidth, KeyboardInspectorWidth, 0.45, 760, 1320);
+        void SyncLayout() => FitDeviceLayout(page, grid, stage, inspector, KeyboardStageWidth, KeyboardInspectorWidth, 0.6, 1140, 980);
         layoutSyncs.Add(SyncLayout);
         page.HandleCreated += (_, _) => SyncLayout();
         page.Resize += (_, _) => SyncLayout();
@@ -360,7 +361,7 @@ public sealed class SettingsForm : Form
         group.Controls.Add(new KeyboardPreview
         {
             Width = width - 48,
-            Height = 380,
+            Height = 520,
             Margin = new Padding(8, 16, 8, 16),
         });
         AddProgress(group, device.Battery.Percent, BatteryText(device));
@@ -608,7 +609,7 @@ public sealed class SettingsForm : Form
                     break;
                 case KeyboardPreview:
                     child.Width = Math.Max(180, contentWidth - 4);
-                    child.Height = Math.Clamp((int)Math.Round(child.Width * 0.47), 320, 440);
+                    child.Height = Math.Clamp((int)Math.Round(child.Width * 0.52), 440, 620);
                     break;
                 case TrackpadPreview:
                     child.Width = Math.Max(180, contentWidth - 4);
@@ -2047,45 +2048,52 @@ internal sealed class KeyboardPreview : Control
     {
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        var stage = new Rectangle(4, 8, Width - 8, Height - 16);
+        e.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
+        var stage = new Rectangle(0, 0, Width - 1, Height - 1);
         DrawStage(e.Graphics, stage);
 
-        var width = Math.Max(420, Math.Min(stage.Width - 34, 980));
-        var height = Math.Min(stage.Height - 28, (int)Math.Round(width * 0.39));
-        var keyboard = new Rectangle(stage.Left + (stage.Width - width) / 2, stage.Top + Math.Max(12, (stage.Height - height) / 2), width, height);
+        var availableWidth = Math.Max(360, stage.Width - 18);
+        var availableHeight = Math.Max(210, stage.Height - 18);
+        var width = Math.Min(availableWidth, (int)Math.Round(availableHeight / 0.36));
+        var height = (int)Math.Round(width * 0.36);
+        var keyboard = new Rectangle(stage.Left + (stage.Width - width) / 2, stage.Top + (stage.Height - height) / 2, width, height);
 
-        using (var shadowPath = Rounded(new Rectangle(keyboard.Left + 12, keyboard.Bottom - 1, keyboard.Width - 24, 16), 20))
+        using (var shadowPath = Rounded(new Rectangle(keyboard.Left + 12, keyboard.Bottom - 2, keyboard.Width - 24, Math.Max(10, keyboard.Height / 13)), Math.Max(10, keyboard.Height / 9)))
         using (var shadowBrush = new PathGradientBrush(shadowPath)
         {
-            CenterColor = Color.FromArgb(72, 0, 0, 0),
+            CenterColor = Color.FromArgb(62, 0, 0, 0),
             SurroundColors = [Color.FromArgb(0, 0, 0, 0)],
         })
         {
             e.Graphics.FillPath(shadowBrush, shadowPath);
         }
 
-        using (var bodyPath = Rounded(keyboard, 22))
-        using (var bodyFill = new LinearGradientBrush(keyboard, Color.FromArgb(210, 213, 217), Color.FromArgb(178, 181, 186), LinearGradientMode.Vertical))
-        using (var border = new Pen(Color.FromArgb(137, 142, 150), 1.3F))
+        var bodyRadius = Math.Max(18, (int)Math.Round(width * 0.024));
+        using (var bodyPath = Rounded(keyboard, bodyRadius))
+        using (var bodyFill = new LinearGradientBrush(keyboard, Color.FromArgb(232, 234, 236), Color.FromArgb(174, 178, 183), LinearGradientMode.Vertical))
+        using (var border = new Pen(Color.FromArgb(130, 136, 142), Math.Max(1.2F, width * 0.0018F)))
         {
             e.Graphics.FillPath(bodyFill, bodyPath);
             e.Graphics.DrawPath(border, bodyPath);
+            using var innerGlow = new Pen(Color.FromArgb(120, 255, 255, 255), Math.Max(1F, width * 0.0013F));
+            e.Graphics.DrawPath(innerGlow, bodyPath);
         }
 
         var grain = new Rectangle(keyboard.Left + 14, keyboard.Top + 8, keyboard.Width - 28, keyboard.Height - 16);
-        using (var grainPen = new Pen(Color.FromArgb(24, 255, 255, 255)))
+        using (var grainPen = new Pen(Color.FromArgb(28, 255, 255, 255)))
         {
-            for (var x = grain.Left; x < grain.Right; x += 7)
+            for (var x = grain.Left; x < grain.Right; x += Math.Max(6, keyboard.Width / 140))
             {
                 e.Graphics.DrawLine(grainPen, x, grain.Top, x + 12, grain.Bottom);
             }
         }
 
         var rows = KeyboardRows();
-        var padX = Math.Max(14, (int)Math.Round(keyboard.Width * 0.016));
-        var padY = Math.Max(12, (int)Math.Round(keyboard.Height * 0.035));
-        var rowGap = Math.Max(5, (int)Math.Round(keyboard.Height * 0.018));
-        var keyGap = Math.Max(5, (int)Math.Round(keyboard.Width * 0.006));
+        var padX = Math.Max(12, (int)Math.Round(keyboard.Width * 0.021));
+        var padY = Math.Max(10, (int)Math.Round(keyboard.Height * 0.033));
+        var rowGap = Math.Max(5, (int)Math.Round(keyboard.Height * 0.017));
+        var keyGap = Math.Max(5, (int)Math.Round(keyboard.Width * 0.0086));
         var innerWidth = keyboard.Width - padX * 2;
         var keyHeight = (keyboard.Height - padY * 2 - rowGap * (rows.Length - 1)) / rows.Length;
         var y = keyboard.Top + padY;
@@ -2121,21 +2129,16 @@ internal sealed class KeyboardPreview : Control
     {
         if (key.Glyph == KeyGlyph.UpDown)
         {
-            var halfHeight = Math.Max(6, (rect.Height - 3) / 2);
-            DrawKey(graphics, new Rectangle(rect.Left, rect.Top, rect.Width, halfHeight), Key("", 1, glyph: KeyGlyph.UpArrow));
-            DrawKey(graphics, new Rectangle(rect.Left, rect.Bottom - halfHeight, rect.Width, halfHeight), Key("", 1, glyph: KeyGlyph.DownArrow));
+            DrawKeyShell(graphics, rect);
+            using var splitPen = new Pen(Color.FromArgb(122, 126, 132), Math.Max(1F, rect.Height * 0.032F));
+            graphics.DrawLine(splitPen, rect.Left + 2, rect.Top + rect.Height / 2, rect.Right - 2, rect.Top + rect.Height / 2);
+            using var brush = new SolidBrush(KeyTextColor);
+            DrawArrow(graphics, new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height / 2), ArrowDirection.Up, brush);
+            DrawArrow(graphics, new Rectangle(rect.Left, rect.Top + rect.Height / 2, rect.Width, rect.Height / 2), ArrowDirection.Down, brush);
             return;
         }
 
-        using var shadowPath = Rounded(new Rectangle(rect.Left + 1, rect.Top + 1, rect.Width, rect.Height), 7);
-        using var shadow = new SolidBrush(Color.FromArgb(35, 0, 0, 0));
-        graphics.FillPath(shadow, shadowPath);
-
-        using var path = Rounded(rect, 7);
-        using var fill = new LinearGradientBrush(rect, Color.FromArgb(255, 255, 255), Color.FromArgb(240, 242, 246), LinearGradientMode.Vertical);
-        using var border = new Pen(Color.FromArgb(45, 49, 55), Math.Max(1F, rect.Height * 0.045F));
-        graphics.FillPath(fill, path);
-        graphics.DrawPath(border, path);
+        DrawKeyShell(graphics, rect);
 
         if (key.Glyph != KeyGlyph.None)
         {
@@ -2144,26 +2147,60 @@ internal sealed class KeyboardPreview : Control
 
         if (key.Top.Length > 0)
         {
-            DrawText(graphics, key.Top, rect, KeyTextColor, 8.6F, ContentAlignment.TopCenter, new Padding(0, 6, 0, 0));
+            DrawText(graphics, key.Top, rect, KeyTextColor, KeyTopSize(rect), ContentAlignment.TopCenter, new Padding(0, Math.Max(4, rect.Height / 11), 0, 0), false);
         }
 
         if (key.Main.Length > 0)
         {
-            var size = key.Main.Length <= 1 ? 13.8F : key.Main.Length <= 4 ? 9.2F : 8.4F;
-            var align = key.Align switch
+            if (key.Align != LabelAlign.Center)
             {
-                LabelAlign.Left => ContentAlignment.BottomLeft,
-                LabelAlign.Right => ContentAlignment.BottomRight,
-                _ => key.Top.Length > 0 ? ContentAlignment.BottomCenter : ContentAlignment.MiddleCenter,
-            };
-            var inset = key.Align == LabelAlign.Center ? new Padding(0, 0, 0, key.Top.Length > 0 ? 5 : 0) : new Padding(10, 0, 10, 8);
-            DrawText(graphics, key.Main, rect, KeyTextColor, size, align, inset);
+                var align = key.Align == LabelAlign.Left ? ContentAlignment.BottomLeft : ContentAlignment.BottomRight;
+                var horizontalInset = Math.Max(8, rect.Width / 10);
+                DrawText(graphics, key.Main, rect, KeyTextColor, KeySmallLabelSize(rect), align, new Padding(horizontalInset, 0, horizontalInset, Math.Max(6, rect.Height / 9)), false);
+            }
+            else if (key.Glyph != KeyGlyph.None)
+            {
+                DrawText(graphics, key.Main, rect, KeyTextColor, KeyBottomLabelSize(rect), ContentAlignment.BottomCenter, new Padding(0, 0, 0, Math.Max(5, rect.Height / 12)), false);
+            }
+            else if (key.Top.Length > 0)
+            {
+                DrawText(graphics, key.Main, rect, KeyTextColor, KeyMainSize(rect), ContentAlignment.BottomCenter, new Padding(0, 0, 0, Math.Max(4, rect.Height / 13)), true);
+            }
+            else if (key.Main.Length == 1)
+            {
+                DrawText(graphics, key.Main, rect, KeyTextColor, KeyLetterSize(rect), ContentAlignment.MiddleCenter, Padding.Empty, true);
+            }
+            else
+            {
+                DrawText(graphics, key.Main, rect, KeyTextColor, KeySmallLabelSize(rect), ContentAlignment.MiddleCenter, Padding.Empty, false);
+            }
         }
 
         if (key.Bottom.Length > 0)
         {
-            DrawText(graphics, key.Bottom, rect, KeyTextColor, 8.2F, ContentAlignment.BottomCenter, new Padding(0, 0, 0, 5));
+            DrawText(graphics, key.Bottom, rect, KeyTextColor, KeyBottomLabelSize(rect), ContentAlignment.BottomCenter, new Padding(0, 0, 0, Math.Max(5, rect.Height / 12)), false);
         }
+    }
+
+    private static void DrawKeyShell(Graphics graphics, Rectangle rect)
+    {
+        var radius = Math.Max(6, Math.Min(11, rect.Height / 5));
+        using (var shadowPath = Rounded(new Rectangle(rect.Left + 1, rect.Top + 2, rect.Width, rect.Height), radius))
+        using (var shadow = new SolidBrush(Color.FromArgb(42, 0, 0, 0)))
+        {
+            graphics.FillPath(shadow, shadowPath);
+        }
+
+        using var path = Rounded(rect, radius);
+        using var fill = new LinearGradientBrush(rect, Color.FromArgb(254, 255, 255), Color.FromArgb(238, 240, 244), LinearGradientMode.Vertical);
+        using var border = new Pen(Color.FromArgb(47, 50, 56), Math.Max(1.15F, rect.Height * 0.042F));
+        graphics.FillPath(fill, path);
+        graphics.DrawPath(border, path);
+
+        var shineRect = new Rectangle(rect.Left + 3, rect.Top + 3, Math.Max(1, rect.Width - 6), Math.Max(1, rect.Height / 2));
+        using var highlight = new LinearGradientBrush(shineRect, Color.FromArgb(150, 255, 255, 255), Color.FromArgb(15, 255, 255, 255), LinearGradientMode.Vertical);
+        using var highlightPath = Rounded(shineRect, Math.Max(4, radius - 2));
+        graphics.FillPath(highlight, highlightPath);
     }
 
     private static KeyboardKey[][] KeyboardRows() =>
@@ -2181,11 +2218,21 @@ internal sealed class KeyboardPreview : Control
         return new KeyboardKey(main, top, bottom, units, glyph, align);
     }
 
-    private static Color KeyTextColor => Color.FromArgb(126, 130, 136);
+    private static Color KeyTextColor => Color.FromArgb(128, 132, 136);
 
-    private static void DrawText(Graphics graphics, string text, Rectangle rect, Color color, float size, ContentAlignment align, Padding inset)
+    private static float KeyTopSize(Rectangle rect) => Math.Clamp(rect.Height * 0.18F, 7.5F, 13F);
+
+    private static float KeyBottomLabelSize(Rectangle rect) => Math.Clamp(rect.Height * 0.17F, 7.2F, 12F);
+
+    private static float KeySmallLabelSize(Rectangle rect) => Math.Clamp(rect.Height * 0.22F, 8.2F, 15F);
+
+    private static float KeyMainSize(Rectangle rect) => Math.Clamp(rect.Height * 0.36F, 12F, 25F);
+
+    private static float KeyLetterSize(Rectangle rect) => Math.Clamp(rect.Height * 0.37F, 12F, 26F);
+
+    private static void DrawText(Graphics graphics, string text, Rectangle rect, Color color, float size, ContentAlignment align, Padding inset, bool light = false)
     {
-        using var font = new Font("Segoe UI", size);
+        using var font = new Font(light ? "Segoe UI Light" : "Segoe UI", size, FontStyle.Regular, GraphicsUnit.Point);
         var area = new Rectangle(rect.Left + inset.Left, rect.Top + inset.Top, rect.Width - inset.Left - inset.Right, rect.Height - inset.Top - inset.Bottom);
         var flags = TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding;
         flags |= align switch
