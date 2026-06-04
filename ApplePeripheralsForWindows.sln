@@ -1,8 +1,12 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MagicTrackpad.App", "src\MagicTrackpad.App\MagicTrackpad.App.csproj", "{6A7F1B8B-0B7F-4F62-81E5-52B2C45A876D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EEC2068A-D83C-486D-8974-A32170CE0E59}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApplePeripherals.Setup", "src\ApplePeripherals.Setup\ApplePeripherals.Setup.csproj", "{8348BC1B-9F2C-47D4-9901-E25660C42AC7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,6 +18,12 @@ Global
 		{6A7F1B8B-0B7F-4F62-81E5-52B2C45A876D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6A7F1B8B-0B7F-4F62-81E5-52B2C45A876D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6A7F1B8B-0B7F-4F62-81E5-52B2C45A876D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8348BC1B-9F2C-47D4-9901-E25660C42AC7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8348BC1B-9F2C-47D4-9901-E25660C42AC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8348BC1B-9F2C-47D4-9901-E25660C42AC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8348BC1B-9F2C-47D4-9901-E25660C42AC7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{8348BC1B-9F2C-47D4-9901-E25660C42AC7} = {EEC2068A-D83C-486D-8974-A32170CE0E59}
 	EndGlobalSection
 EndGlobal
-

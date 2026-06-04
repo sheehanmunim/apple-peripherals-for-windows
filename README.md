@@ -88,13 +88,65 @@ dotnet run --project .\src\MagicTrackpad.App\MagicTrackpad.App.csproj -c Release
 
 ## Install
 
-Use PowerShell from the repo root:
+Download `ApplePeripheralsSetup-win-x64.exe` from the latest GitHub release and run it. The setup app installs the background bridge and settings app, starts the bridge for the current session, creates Start Menu shortcuts, and registers Apple Peripherals for Windows in Windows Apps / Control Panel for uninstall.
+
+If you run setup as Administrator, it can also install or update the Microsoft-signed Magic Trackpad Precision Touchpad driver. A restart may be required after the driver install.
+
+Installed files are written to:
+
+```text
+%LOCALAPPDATA%\ApplePeripheralsForWindows
+```
+
+The app creates or reuses this config file:
+
+```text
+%USERPROFILE%\.magictrackpad-bridge.json
+```
+
+Open settings after install from the Start Menu.
+
+Uninstall from Windows:
+
+```text
+Settings > Apps > Installed apps > Apple Peripherals for Windows > Uninstall
+```
+
+or:
+
+```text
+Control Panel > Programs > Programs and Features > Apple Peripherals for Windows
+```
+
+## Build Installer
+
+From the repo root:
+
+```powershell
+.\scripts\build-installer.ps1
+```
+
+The setup executable is created at:
+
+```text
+artifacts\installer\ApplePeripheralsSetup-win-x64.exe
+```
+
+Build the ARM64 installer with:
+
+```powershell
+.\scripts\build-installer.ps1 -Runtime win-arm64
+```
+
+## Manual Developer Install
+
+Use PowerShell from the repo root when testing from source:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 ```
 
-The installer publishes the native app to:
+The script publishes the native app to:
 
 ```text
 %LOCALAPPDATA%\ApplePeripheralsForWindows\app\MagicTrackpad.exe
@@ -126,7 +178,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -InstallPrecision
 
 The driver installer downloads the Microsoft-signed MagicTrackpad2ForWindows package, verifies Authenticode signatures, selects AMD64 or ARM64, and installs `AmtPtpDevice.inf` with `pnputil`. Reconnect the trackpad or reboot if Windows keeps the old mouse binding loaded.
 
-Uninstall:
+Manual script uninstall:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\uninstall.ps1
