@@ -8,7 +8,8 @@ param(
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ProjectPath = Join-Path $RepoRoot "src\MagicTrackpad.App\MagicTrackpad.App.csproj"
-$InstalledExe = Join-Path $env:LOCALAPPDATA "MagicTrackpadBridge\app\MagicTrackpad.exe"
+$InstalledExe = Join-Path $env:LOCALAPPDATA "ApplePeripheralsForWindows\app\MagicTrackpad.exe"
+$LegacyInstalledExe = Join-Path $env:LOCALAPPDATA "MagicTrackpadBridge\app\MagicTrackpad.exe"
 $ArgsList = @("--bridge", "--config", $Config)
 
 if ($DryRun) {
@@ -17,6 +18,10 @@ if ($DryRun) {
 
 if ($Seconds -gt 0) {
     $ArgsList += @("--seconds", $Seconds.ToString([Globalization.CultureInfo]::InvariantCulture))
+}
+
+if ($Installed -and !(Test-Path $InstalledExe) -and (Test-Path $LegacyInstalledExe)) {
+    $InstalledExe = $LegacyInstalledExe
 }
 
 if ($Installed -and (Test-Path $InstalledExe)) {

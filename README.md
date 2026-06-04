@@ -1,21 +1,30 @@
 # Apple Peripherals for Windows
 
-Native Windows settings app and background bridge for Apple Magic Trackpad multitouch over Bluetooth.
+Native Windows settings app and background bridge for Apple Magic Trackpad and Magic Keyboard support over Bluetooth.
 
-Windows can pair the Magic Trackpad as a Bluetooth HID pointer, but many of the useful trackpad behaviors are missing. This repo provides a C#/.NET Windows app that enables Apple multitouch mode, reads the trackpad through Windows Raw Input, and applies the gestures you configure.
+Windows can pair Apple peripherals as Bluetooth HID devices, but many of the useful Mac-style behaviors are missing. This repo provides one C#/.NET Windows app that enables Magic Trackpad multitouch mode, reads the trackpad through Windows Raw Input, and applies the trackpad gestures and keyboard remaps you configure.
 
 ## Native App
 
 - Built with C# on .NET 8 and WinForms.
-- Installs `MagicTrackpad.exe` as a per-user background bridge.
+- Installs `MagicTrackpad.exe` as one per-user background bridge for keyboard and trackpad support.
 - Adds Start Menu shortcuts for settings and manual bridge launch.
 - Registers a per-user scheduled task when Windows allows it, and falls back to a Startup shortcut when task registration is blocked.
 - Keeps Bluetooth multitouch mode refreshed after reconnects and wake events.
 - Reloads saved settings while the bridge is running.
+- Detects Apple Magic Keyboard devices and applies the configured keyboard remaps while one is connected.
 
 ## Controls
 
 The settings app lets you configure:
+
+Keyboard:
+
+- Command, Control, Option, and Caps Lock remaps.
+- F13 through F19 keybinds.
+- Whether keyboard remaps are active only while an Apple keyboard is connected.
+
+Trackpad:
 
 - Pointer movement, sensitivity, and X/Y direction.
 - Two-finger vertical and horizontal scrolling.
@@ -71,7 +80,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 The installer publishes the native app to:
 
 ```text
-%LOCALAPPDATA%\MagicTrackpadBridge\app\MagicTrackpad.exe
+%LOCALAPPDATA%\ApplePeripheralsForWindows\app\MagicTrackpad.exe
 ```
 
 It creates or reuses this config file:
@@ -94,7 +103,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\uninstall.ps1
 
 ## System Design
 
-See [docs/architecture.md](docs/architecture.md). The app is split into configuration, HID device access, Raw Input runtime, gesture translation, input injection, WinForms UI, and self-test layers.
+See [docs/architecture.md](docs/architecture.md). The app is split into configuration, HID device access, Raw Input runtime, keyboard remapping, gesture translation, input injection, WinForms UI, and self-test layers.
 
 ## License And Attribution
 

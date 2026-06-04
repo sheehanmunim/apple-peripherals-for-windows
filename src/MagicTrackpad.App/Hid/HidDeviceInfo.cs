@@ -16,12 +16,21 @@ public sealed record HidDeviceInfo(
         DeviceCatalog.MagicTrackpad => "Magic Trackpad",
         DeviceCatalog.MagicTrackpad2 => "Magic Trackpad 2",
         DeviceCatalog.MagicTrackpad2UsbC => "Magic Trackpad USB-C",
+        DeviceCatalog.MagicKeyboardUsbC => "Magic Keyboard USB-C",
+        DeviceCatalog.MagicKeyboardBluetooth => "Magic Keyboard",
         _ => "Unknown HID device",
     };
 
     public bool IsAppleMagicTrackpad =>
         (VendorId is DeviceCatalog.AppleUsbVendorId or DeviceCatalog.AppleBluetoothVendorId || PathMentionsApple()) &&
         ProductId is DeviceCatalog.MagicTrackpad or DeviceCatalog.MagicTrackpad2 or DeviceCatalog.MagicTrackpad2UsbC;
+
+    public bool IsAppleKeyboard =>
+        (VendorId is DeviceCatalog.AppleUsbVendorId or DeviceCatalog.AppleBluetoothVendorId || PathMentionsApple()) &&
+        !IsAppleMagicTrackpad &&
+        (ProductId is DeviceCatalog.MagicKeyboardBluetooth or DeviceCatalog.MagicKeyboardUsbC ||
+            UsagePage == 0x01 && Usage == 0x06 ||
+            Name.Contains("COL01", StringComparison.OrdinalIgnoreCase));
 
     public bool IsBluetooth =>
         VendorId == DeviceCatalog.AppleBluetoothVendorId ||
@@ -40,9 +49,14 @@ public static partial class DeviceCatalog
     public const int MagicTrackpad = 0x030E;
     public const int MagicTrackpad2 = 0x0265;
     public const int MagicTrackpad2UsbC = 0x0324;
+    public const int MagicKeyboardBluetooth = 0x0320;
+    public const int MagicKeyboardUsbC = 0x0321;
 
     public static IReadOnlyList<HidDeviceInfo> FindMagicTrackpads(IEnumerable<HidDeviceInfo> devices) =>
         devices.Where(device => device.IsAppleMagicTrackpad).ToList();
+
+    public static IReadOnlyList<HidDeviceInfo> FindAppleKeyboards(IEnumerable<HidDeviceInfo> devices) =>
+        devices.Where(device => device.IsAppleKeyboard).ToList();
 
     public static byte[]? MultitouchFeatureReport(HidDeviceInfo device)
     {
@@ -87,4 +101,3 @@ public static partial class DeviceCatalog
         yield return BluetoothVidPidRegex();
     }
 }
-

@@ -13,7 +13,7 @@ public sealed class SettingsForm : Form
     {
         this.configPath = configPath;
         config = ConfigStore.Load(configPath);
-        Text = "Magic Trackpad Settings";
+        Text = "Apple Peripherals Settings";
         Width = 820;
         Height = 680;
         MinimumSize = new Size(720, 560);
@@ -40,7 +40,7 @@ public sealed class SettingsForm : Form
 
         root.Controls.Add(new Label
         {
-            Text = "Magic Trackpad Bridge",
+            Text = "Apple Peripherals for Windows",
             Font = new Font("Segoe UI", 16F, FontStyle.Bold),
             AutoSize = true,
         }, 0, 0);
@@ -88,6 +88,25 @@ public sealed class SettingsForm : Form
         AddHotkey(gestures, "FourFingerSwipeRight", "4 fingers right");
         AddHotkey(gestures, "FourFingerSwipeUp", "4 fingers up");
         AddHotkey(gestures, "FourFingerSwipeDown", "4 fingers down");
+
+        var keyboard = AddTab(tabs, "Keyboard");
+        var keyActions = new[] { "unchanged", "Ctrl", "Alt", "Win", "Shift", "Esc", "CapsLock", "none" };
+        AddCheck(keyboard, "KeyboardEnabled", "Enable Apple keyboard support");
+        AddCheck(keyboard, "KeyboardOnlyWhenAppleKeyboardPresent", "Only apply while an Apple keyboard is connected");
+        AddChoice(keyboard, "KeyboardLeftCommand", "Left Command action", keyActions);
+        AddChoice(keyboard, "KeyboardRightCommand", "Right Command action", keyActions);
+        AddChoice(keyboard, "KeyboardLeftControl", "Left Control action", keyActions);
+        AddChoice(keyboard, "KeyboardRightControl", "Right Control action", keyActions);
+        AddChoice(keyboard, "KeyboardLeftOption", "Left Option action", keyActions);
+        AddChoice(keyboard, "KeyboardRightOption", "Right Option action", keyActions);
+        AddChoice(keyboard, "KeyboardCapsLock", "Caps Lock action", keyActions);
+        AddHotkey(keyboard, "KeyboardF13", "F13 keybind");
+        AddHotkey(keyboard, "KeyboardF14", "F14 keybind");
+        AddHotkey(keyboard, "KeyboardF15", "F15 keybind");
+        AddHotkey(keyboard, "KeyboardF16", "F16 keybind");
+        AddHotkey(keyboard, "KeyboardF17", "F17 keybind");
+        AddHotkey(keyboard, "KeyboardF18", "F18 keybind");
+        AddHotkey(keyboard, "KeyboardF19", "F19 keybind");
 
         var service = AddTab(tabs, "Service");
         AddCheck(service, "EnableMultitouchOnStart", "Enable multitouch automatically");
@@ -220,6 +239,22 @@ public sealed class SettingsForm : Form
         Set("FourFingerSwipeRight", config.Gestures.Hotkeys.FourFingerSwipeRight);
         Set("FourFingerSwipeUp", config.Gestures.Hotkeys.FourFingerSwipeUp);
         Set("FourFingerSwipeDown", config.Gestures.Hotkeys.FourFingerSwipeDown);
+        Set("KeyboardEnabled", config.Keyboard.Enabled);
+        Set("KeyboardOnlyWhenAppleKeyboardPresent", config.Keyboard.OnlyWhenAppleKeyboardPresent);
+        Set("KeyboardLeftCommand", config.Keyboard.LeftCommand);
+        Set("KeyboardRightCommand", config.Keyboard.RightCommand);
+        Set("KeyboardLeftControl", config.Keyboard.LeftControl);
+        Set("KeyboardRightControl", config.Keyboard.RightControl);
+        Set("KeyboardLeftOption", config.Keyboard.LeftOption);
+        Set("KeyboardRightOption", config.Keyboard.RightOption);
+        Set("KeyboardCapsLock", config.Keyboard.CapsLock);
+        Set("KeyboardF13", config.Keyboard.F13);
+        Set("KeyboardF14", config.Keyboard.F14);
+        Set("KeyboardF15", config.Keyboard.F15);
+        Set("KeyboardF16", config.Keyboard.F16);
+        Set("KeyboardF17", config.Keyboard.F17);
+        Set("KeyboardF18", config.Keyboard.F18);
+        Set("KeyboardF19", config.Keyboard.F19);
         Set("EnableMultitouchOnStart", config.EnableMultitouchOnStart);
         Set("ReenableIntervalSeconds", config.ReenableIntervalSeconds);
         Set("LogRawReports", config.LogRawReports);
@@ -235,13 +270,13 @@ public sealed class SettingsForm : Form
             ConfigStore.Save(configPath, config);
             if (showMessage)
             {
-                MessageBox.Show(this, "Settings saved.", "Magic Trackpad", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, "Settings saved.", "Apple Peripherals", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             return true;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Magic Trackpad", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, ex.Message, "Apple Peripherals", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return false;
         }
     }
@@ -281,6 +316,22 @@ public sealed class SettingsForm : Form
         config.Gestures.Hotkeys.FourFingerSwipeRight = Hotkeys.Normalize(GetText("FourFingerSwipeRight"));
         config.Gestures.Hotkeys.FourFingerSwipeUp = Hotkeys.Normalize(GetText("FourFingerSwipeUp"));
         config.Gestures.Hotkeys.FourFingerSwipeDown = Hotkeys.Normalize(GetText("FourFingerSwipeDown"));
+        config.Keyboard.Enabled = GetBool("KeyboardEnabled");
+        config.Keyboard.OnlyWhenAppleKeyboardPresent = GetBool("KeyboardOnlyWhenAppleKeyboardPresent");
+        config.Keyboard.LeftCommand = GetText("KeyboardLeftCommand");
+        config.Keyboard.RightCommand = GetText("KeyboardRightCommand");
+        config.Keyboard.LeftControl = GetText("KeyboardLeftControl");
+        config.Keyboard.RightControl = GetText("KeyboardRightControl");
+        config.Keyboard.LeftOption = GetText("KeyboardLeftOption");
+        config.Keyboard.RightOption = GetText("KeyboardRightOption");
+        config.Keyboard.CapsLock = GetText("KeyboardCapsLock");
+        config.Keyboard.F13 = Hotkeys.Normalize(GetText("KeyboardF13"));
+        config.Keyboard.F14 = Hotkeys.Normalize(GetText("KeyboardF14"));
+        config.Keyboard.F15 = Hotkeys.Normalize(GetText("KeyboardF15"));
+        config.Keyboard.F16 = Hotkeys.Normalize(GetText("KeyboardF16"));
+        config.Keyboard.F17 = Hotkeys.Normalize(GetText("KeyboardF17"));
+        config.Keyboard.F18 = Hotkeys.Normalize(GetText("KeyboardF18"));
+        config.Keyboard.F19 = Hotkeys.Normalize(GetText("KeyboardF19"));
         config.EnableMultitouchOnStart = GetBool("EnableMultitouchOnStart");
         config.ReenableIntervalSeconds = GetDouble("ReenableIntervalSeconds");
         config.LogRawReports = GetBool("LogRawReports");
@@ -300,6 +351,13 @@ public sealed class SettingsForm : Form
             config.Gestures.Hotkeys.FourFingerSwipeRight,
             config.Gestures.Hotkeys.FourFingerSwipeUp,
             config.Gestures.Hotkeys.FourFingerSwipeDown,
+            config.Keyboard.F13,
+            config.Keyboard.F14,
+            config.Keyboard.F15,
+            config.Keyboard.F16,
+            config.Keyboard.F17,
+            config.Keyboard.F18,
+            config.Keyboard.F19,
         })
         {
             Hotkeys.Parse(value);
@@ -388,4 +446,3 @@ public sealed class SettingsForm : Form
         _ => "",
     };
 }
-

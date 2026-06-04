@@ -13,6 +13,12 @@ internal static class NativeMethods
     public const int RIDEV_DEVNOTIFY = 0x00002000;
     public const int WM_INPUT = 0x00FF;
     public const int WM_INPUT_DEVICE_CHANGE = 0x00FE;
+    public const int WM_KEYDOWN = 0x0100;
+    public const int WM_KEYUP = 0x0101;
+    public const int WM_SYSKEYDOWN = 0x0104;
+    public const int WM_SYSKEYUP = 0x0105;
+    public const int WH_KEYBOARD_LL = 13;
+    public const int LLKHF_INJECTED = 0x10;
 
     public const uint GenericRead = 0x80000000;
     public const uint GenericWrite = 0x40000000;
@@ -75,6 +81,22 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern uint SendInput(uint inputCount, Input[] inputs, int inputSize);
+
+    public delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SetWindowsHookEx(
+        int hookType,
+        LowLevelKeyboardProc callback,
+        IntPtr module,
+        uint threadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool UnhookWindowsHookEx(IntPtr hook);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr wParam, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct RawInputDeviceList
@@ -181,5 +203,14 @@ internal static class NativeMethods
         public uint Time;
         public UIntPtr ExtraInfo;
     }
-}
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KeyboardHookStruct
+    {
+        public uint VkCode;
+        public uint ScanCode;
+        public uint Flags;
+        public uint Time;
+        public UIntPtr ExtraInfo;
+    }
+}

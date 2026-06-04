@@ -36,6 +36,24 @@
       "four_finger_swipe_down": "Win+D"
     }
   },
+  "keyboard": {
+    "enabled": true,
+    "only_when_apple_keyboard_present": true,
+    "left_command": "Ctrl",
+    "right_command": "Ctrl",
+    "left_control": "Win",
+    "right_control": "Win",
+    "left_option": "Alt",
+    "right_option": "Alt",
+    "caps_lock": "CapsLock",
+    "f13": "none",
+    "f14": "none",
+    "f15": "none",
+    "f16": "none",
+    "f17": "none",
+    "f18": "none",
+    "f19": "none"
+  },
   "enable_multitouch_on_start": true,
   "reenable_interval_seconds": 15.0,
   "log_raw_reports": false,

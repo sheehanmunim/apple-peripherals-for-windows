@@ -2,6 +2,7 @@ using MagicTrackpad.Configuration;
 using MagicTrackpad.Gestures;
 using MagicTrackpad.Hid;
 using MagicTrackpad.Input;
+using MagicTrackpad.Keyboard;
 
 namespace MagicTrackpad.Runtime;
 
@@ -11,6 +12,7 @@ internal sealed class BridgeApplicationContext : ApplicationContext
     private AppConfig config;
     private readonly IInputInjector injector;
     private readonly GestureEngine engine;
+    private readonly KeyboardRemapper keyboard;
     private readonly System.Windows.Forms.Timer reenableTimer = new();
     private readonly System.Windows.Forms.Timer reloadTimer = new();
     private readonly System.Windows.Forms.Timer? stopTimer;
@@ -27,10 +29,11 @@ internal sealed class BridgeApplicationContext : ApplicationContext
         lastConfigWrite = ConfigLastWrite();
         injector = dryRun ? new DryRunInputInjector() : new Win32InputInjector();
         engine = new GestureEngine(injector, config.Gestures);
+        keyboard = new KeyboardRemapper(injector, config.Keyboard);
 
         notifyIcon = new NotifyIcon
         {
-            Text = "Magic Trackpad Bridge",
+            Text = "Apple Peripherals",
             Icon = SystemIcons.Application,
             Visible = true,
             ContextMenuStrip = BuildMenu(),
@@ -57,7 +60,11 @@ internal sealed class BridgeApplicationContext : ApplicationContext
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add("Settings", null, (_, _) => ShowSettings());
-        menu.Items.Add("Refresh Trackpad", null, (_, _) => ReenableTrackpads());
+        menu.Items.Add("Refresh Devices", null, (_, _) =>
+        {
+            window.RefreshDevices();
+            ReenableTrackpads();
+        });
         menu.Items.Add("Exit", null, (_, _) => ExitThread());
         return menu;
     }
@@ -88,6 +95,7 @@ internal sealed class BridgeApplicationContext : ApplicationContext
 
         config = ConfigStore.Load(configPath);
         engine.UpdateConfig(config.Gestures);
+        keyboard.UpdateConfig(config.Keyboard);
         reenableTimer.Interval = Math.Max(3000, (int)(config.ReenableIntervalSeconds * 1000));
         lastConfigWrite = writeTime;
     }
@@ -97,6 +105,8 @@ internal sealed class BridgeApplicationContext : ApplicationContext
 
     private void OnDevicesChanged(IReadOnlyList<HidDeviceInfo> devices)
     {
+        keyboard.SetAppleKeyboardPresent(DeviceCatalog.FindAppleKeyboards(devices).Count > 0);
+
         var groups = DeviceCatalog.FindMagicTrackpads(devices).GroupBy(device => DeviceActions.PhysicalKey(device.Name));
         foreach (var group in groups)
         {
@@ -155,6 +165,7 @@ internal sealed class BridgeApplicationContext : ApplicationContext
             stopTimer?.Dispose();
             reenableTimer.Dispose();
             reloadTimer.Dispose();
+            keyboard.Dispose();
             window.Dispose();
             notifyIcon.Visible = false;
             notifyIcon.Dispose();

@@ -1,19 +1,21 @@
 param(
-    [string]$InstallDir = "$env:LOCALAPPDATA\MagicTrackpadBridge",
-    [string]$TaskName = "MagicTrackpadBridge"
+    [string]$InstallDir = "$env:LOCALAPPDATA\ApplePeripheralsForWindows",
+    [string]$TaskName = "ApplePeripheralsBridge"
 )
 
 $ErrorActionPreference = "Stop"
 
-if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
-    Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+foreach ($task in @($TaskName, "MagicTrackpadBridge") | Select-Object -Unique) {
+    if (Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue) {
+        Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $task -Confirm:$false
+    }
 }
 
 Get-CimInstance Win32_Process |
     Where-Object {
         ($_.Name -in @("MagicTrackpad.exe", "python.exe", "pythonw.exe")) -and
-        ($_.CommandLine -like "*MagicTrackpadBridge*" -or $_.CommandLine -like "*magictrackpad_bridge*")
+        ($_.CommandLine -like "*ApplePeripheralsForWindows*" -or $_.CommandLine -like "*MagicTrackpadBridge*" -or $_.CommandLine -like "*magictrackpad_bridge*")
     } |
     ForEach-Object {
         try {
@@ -28,14 +30,23 @@ if (Test-Path $InstallDir) {
     Remove-Item -LiteralPath $InstallDir -Recurse -Force
 }
 
-$StartMenuDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Magic Trackpad Bridge"
-if (Test-Path $StartMenuDir) {
-    Remove-Item -LiteralPath $StartMenuDir -Recurse -Force
+foreach ($dir in @(
+    (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Apple Peripherals for Windows"),
+    (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Magic Trackpad Bridge"),
+    (Join-Path $env:LOCALAPPDATA "MagicTrackpadBridge")
+)) {
+    if ($dir -ne $InstallDir -and (Test-Path $dir)) {
+        Remove-Item -LiteralPath $dir -Recurse -Force
+    }
 }
 
-$StartupShortcut = Join-Path ([Environment]::GetFolderPath("Startup")) "Magic Trackpad Bridge.lnk"
-if (Test-Path $StartupShortcut) {
-    Remove-Item -LiteralPath $StartupShortcut -Force
+foreach ($shortcut in @(
+    (Join-Path ([Environment]::GetFolderPath("Startup")) "Apple Peripherals.lnk"),
+    (Join-Path ([Environment]::GetFolderPath("Startup")) "Magic Trackpad Bridge.lnk")
+)) {
+    if (Test-Path $shortcut) {
+        Remove-Item -LiteralPath $shortcut -Force
+    }
 }
 
-Write-Host "Uninstalled MagicTrackpadBridge."
+Write-Host "Uninstalled Apple Peripherals for Windows."

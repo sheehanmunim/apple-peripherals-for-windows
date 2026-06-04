@@ -5,6 +5,7 @@ namespace MagicTrackpad.Configuration;
 public sealed class AppConfig
 {
     public GestureConfig Gestures { get; set; } = new();
+    public KeyboardConfig Keyboard { get; set; } = new();
     public bool EnableMultitouchOnStart { get; set; } = true;
     public double ReenableIntervalSeconds { get; set; } = 15.0;
     public bool LogRawReports { get; set; }
@@ -53,6 +54,26 @@ public sealed class HotkeyConfig
     public string FourFingerSwipeDown { get; set; } = "Win+D";
 }
 
+public sealed class KeyboardConfig
+{
+    public bool Enabled { get; set; } = true;
+    public bool OnlyWhenAppleKeyboardPresent { get; set; } = true;
+    public string LeftCommand { get; set; } = "Ctrl";
+    public string RightCommand { get; set; } = "Ctrl";
+    public string LeftControl { get; set; } = "Win";
+    public string RightControl { get; set; } = "Win";
+    public string LeftOption { get; set; } = "Alt";
+    public string RightOption { get; set; } = "Alt";
+    public string CapsLock { get; set; } = "CapsLock";
+    public string F13 { get; set; } = "none";
+    public string F14 { get; set; } = "none";
+    public string F15 { get; set; } = "none";
+    public string F16 { get; set; } = "none";
+    public string F17 { get; set; } = "none";
+    public string F18 { get; set; } = "none";
+    public string F19 { get; set; } = "none";
+}
+
 public static class ConfigStore
 {
     public static string DefaultConfigPath =>
@@ -77,6 +98,7 @@ public static class ConfigStore
         var config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions) ?? new AppConfig();
         config.Gestures ??= new GestureConfig();
         config.Gestures.Hotkeys ??= new HotkeyConfig();
+        config.Keyboard ??= new KeyboardConfig();
         return config;
     }
 
@@ -92,4 +114,3 @@ public static class ConfigStore
         File.WriteAllText(path, json + Environment.NewLine);
     }
 }
-

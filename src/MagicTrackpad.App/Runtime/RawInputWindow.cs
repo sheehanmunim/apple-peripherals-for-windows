@@ -15,7 +15,7 @@ internal sealed class RawInputWindow : NativeWindow, IDisposable
     {
         this.onReport = onReport;
         this.onDevicesChanged = onDevicesChanged;
-        CreateHandle(new CreateParams { Caption = "Magic Trackpad Bridge" });
+        CreateHandle(new CreateParams { Caption = "Apple Peripherals Bridge" });
         RefreshDevices();
         RegisterRawInput();
     }
@@ -53,6 +53,7 @@ internal sealed class RawInputWindow : NativeWindow, IDisposable
         var records = new[]
         {
             new NativeMethods.RawInputDevice { UsagePage = 0x01, Usage = 0x02, Flags = NativeMethods.RIDEV_INPUTSINK | NativeMethods.RIDEV_DEVNOTIFY, Target = Handle },
+            new NativeMethods.RawInputDevice { UsagePage = 0x01, Usage = 0x06, Flags = NativeMethods.RIDEV_INPUTSINK | NativeMethods.RIDEV_DEVNOTIFY, Target = Handle },
             new NativeMethods.RawInputDevice { UsagePage = 0x0D, Usage = 0x05, Flags = NativeMethods.RIDEV_INPUTSINK | NativeMethods.RIDEV_DEVNOTIFY, Target = Handle },
             new NativeMethods.RawInputDevice { UsagePage = 0xFF00, Usage = 0x0B, Flags = NativeMethods.RIDEV_INPUTSINK | NativeMethods.RIDEV_DEVNOTIFY, Target = Handle },
             new NativeMethods.RawInputDevice { UsagePage = 0xFF00, Usage = 0x14, Flags = NativeMethods.RIDEV_INPUTSINK | NativeMethods.RIDEV_DEVNOTIFY, Target = Handle },

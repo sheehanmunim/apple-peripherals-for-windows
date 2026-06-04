@@ -12,6 +12,7 @@ internal static class SelfTests
         try
         {
             TestHotkeys();
+            TestKeyboardDetection();
             TestReports();
             TestGestures();
             TestConfigRoundTrip();
@@ -40,6 +41,17 @@ internal static class SelfTests
         Require(frames[0].ActiveTouches[0].Y == 200);
     }
 
+    private static void TestKeyboardDetection()
+    {
+        var name = @"HID\{00001124-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&0320&COL01\9&346F8316&0&0000";
+        var parsed = DeviceCatalog.ParseVidPid(name);
+        var device = new HidDeviceInfo(IntPtr.Zero, name, parsed.VendorId, parsed.ProductId, null, null, null);
+        Require(parsed.VendorId == DeviceCatalog.AppleBluetoothVendorId);
+        Require(parsed.ProductId == DeviceCatalog.MagicKeyboardBluetooth);
+        Require(device.IsAppleKeyboard);
+        Require(!device.IsAppleMagicTrackpad);
+    }
+
     private static void TestGestures()
     {
         var injector = new DryRunInputInjector();
@@ -56,10 +68,12 @@ internal static class SelfTests
         var path = Path.Combine(Path.GetTempPath(), "magic-trackpad-native-self-test.json");
         var config = new AppConfig();
         config.Gestures.PointerSensitivity = 0.73;
+        config.Keyboard.F13 = "Ctrl+Alt+Delete";
         ConfigStore.Save(path, config);
         var loaded = ConfigStore.Load(path);
         File.Delete(path);
         Require(Math.Abs(loaded.Gestures.PointerSensitivity - 0.73) < 0.001);
+        Require(loaded.Keyboard.F13 == "Ctrl+Alt+Delete");
     }
 
     private static TrackpadFrame Frame(IReadOnlyList<Touch> touches) => new(0x31, 0, touches, []);
@@ -92,4 +106,3 @@ internal static class SelfTests
         }
     }
 }
-

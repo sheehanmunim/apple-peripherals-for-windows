@@ -37,6 +37,12 @@ internal static class Program
                 return 0;
             }
 
+            if (parsed.Mode == AppMode.MigrateConfig)
+            {
+                ConfigStore.Save(configPath, ConfigStore.Load(configPath));
+                return 0;
+            }
+
             if (parsed.Mode == AppMode.Bridge)
             {
                 Application.Run(new BridgeApplicationContext(configPath, parsed.DryRun, parsed.Seconds));
@@ -50,7 +56,7 @@ internal static class Program
         {
             if (parsed.Mode == AppMode.Settings)
             {
-                MessageBox.Show(ex.Message, "Magic Trackpad", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(ex.Message, "Apple Peripherals", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             return 1;
         }
@@ -64,6 +70,7 @@ internal enum AppMode
     Enable,
     SelfTest,
     WriteConfig,
+    MigrateConfig,
 }
 
 internal sealed class CommandLine
@@ -102,6 +109,10 @@ internal sealed class CommandLine
                 case "--write-config":
                 case "write-config":
                     mode = AppMode.WriteConfig;
+                    break;
+                case "--migrate-config":
+                case "migrate-config":
+                    mode = AppMode.MigrateConfig;
                     break;
                 case "--dry-run":
                     dryRun = true;
