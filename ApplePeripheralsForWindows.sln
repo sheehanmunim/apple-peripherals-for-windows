@@ -8,6 +8,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EEC2068A-D83
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApplePeripherals.Setup", "src\ApplePeripherals.Setup\ApplePeripherals.Setup.csproj", "{8348BC1B-9F2C-47D4-9901-E25660C42AC7}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AppleKeyboardFilter.Driver", "src\AppleKeyboardFilter.Driver\AppleKeyboardFilter.vcxproj", "{5EE7A126-7C81-4E47-9424-BD1AA8A70E47}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -22,8 +24,11 @@ Global
 		{8348BC1B-9F2C-47D4-9901-E25660C42AC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8348BC1B-9F2C-47D4-9901-E25660C42AC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8348BC1B-9F2C-47D4-9901-E25660C42AC7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5EE7A126-7C81-4E47-9424-BD1AA8A70E47}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{5EE7A126-7C81-4E47-9424-BD1AA8A70E47}.Release|Any CPU.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{8348BC1B-9F2C-47D4-9901-E25660C42AC7} = {EEC2068A-D83C-486D-8974-A32170CE0E59}
+		{5EE7A126-7C81-4E47-9424-BD1AA8A70E47} = {EEC2068A-D83C-486D-8974-A32170CE0E59}
 	EndGlobalSection
 EndGlobal

@@ -2,7 +2,8 @@ param(
     [ValidateSet("win-x64", "win-arm64")]
     [string]$Runtime = "win-x64",
     [string]$Configuration = "Release",
-    [string]$OutputDir = ""
+    [string]$OutputDir = "",
+    [string]$KeyboardDriverZip = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,6 +31,15 @@ $DriverZip = Join-Path $ArtifactsRoot "MagicTrackpad2ForWindows-MSSigned.zip"
 $DriverPackageUrl = "https://github.com/vitoplantamura/MagicTrackpad2ForWindows/releases/download/v2.0/MT2FW11-20260223-MSSigned.zip"
 $InstallerName = "ApplePeripheralsSetup-$Runtime.exe"
 $InstallerPath = Join-Path $ArtifactsRoot $InstallerName
+$KeyboardDriverZipPath = if ([string]::IsNullOrWhiteSpace($KeyboardDriverZip)) {
+    ""
+}
+elseif ([IO.Path]::IsPathRooted($KeyboardDriverZip)) {
+    $KeyboardDriverZip
+}
+else {
+    Join-Path $RepoRoot $KeyboardDriverZip
+}
 
 if (Test-Path $ArtifactsRoot) {
     Remove-Item -LiteralPath $ArtifactsRoot -Recurse -Force
@@ -53,6 +63,10 @@ if (!(Test-Path (Join-Path $AppPayloadDir "MagicTrackpad.exe"))) {
     throw "MagicTrackpad.exe was not published to the app payload."
 }
 
+if (![string]::IsNullOrWhiteSpace($KeyboardDriverZipPath) -and !(Test-Path $KeyboardDriverZipPath)) {
+    throw "KeyboardDriverZip was provided but was not found: $KeyboardDriverZipPath"
+}
+
 Write-Host "Compressing app payload..."
 Compress-Archive -Path (Join-Path $AppPayloadDir "*") -DestinationPath $PayloadZip -Force
 
@@ -66,6 +80,7 @@ dotnet publish $SetupProject `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:PayloadZip="$PayloadZip" `
     -p:DriverZip="$DriverZip" `
+    -p:KeyboardDriverZip="$KeyboardDriverZipPath" `
     -o $SetupOutDir
 
 $BuiltInstaller = Join-Path $SetupOutDir "ApplePeripheralsSetup.exe"

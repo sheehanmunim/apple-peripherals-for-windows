@@ -18,4 +18,8 @@
   <ItemGroup Condition="'$(DriverZip)' != ''">
     <EmbeddedResource Include="$(DriverZip)" LogicalName="MagicTrackpad2ForWindows-MSSigned.zip" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(KeyboardDriverZip)' != ''">
+    <EmbeddedResource Include="$(KeyboardDriverZip)" LogicalName="AppleKeyboardFilterDriver.zip" />
+  </ItemGroup>
 </Project>

@@ -127,11 +127,11 @@ internal static class SelfTests
         Require(KeyboardRemapper.ModifierTarget(config.Keyboard.RightOption, 0xA5).SequenceEqual(new ushort[] { 0xA5 }));
         Require(KeyboardRemapper.ModifierTarget(config.Keyboard.LeftCommand, 0x5B).SequenceEqual(new ushort[] { 0xA2 }));
         Require(KeyboardRemapper.ModifierTarget(config.Keyboard.RightCommand, 0x5C).SequenceEqual(new ushort[] { 0xA3 }));
-        Require(KeyboardRemapper.TryGetAppleFnState([0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00], out var bootFnDown) && bootFnDown);
-        Require(KeyboardRemapper.TryGetAppleFnState([0x01, 0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00], out var reportFnDown) && reportFnDown);
-        Require(KeyboardRemapper.TryGetAppleFnState([0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], out var paddedBootFnDown) && paddedBootFnDown);
-        Require(KeyboardRemapper.TryGetAppleFnState([0x01, 0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], out var paddedReportFnDown) && paddedReportFnDown);
-        Require(KeyboardRemapper.TryGetAppleFnState([0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00], out var fnUp) && !fnUp);
+        Require(KeyboardRemapper.TryGetAppleFnState([0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02], out var bodyFnDown) && bodyFnDown);
+        Require(KeyboardRemapper.TryGetAppleFnState([0x01, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02], out var prefixedFnDown) && prefixedFnDown);
+        Require(KeyboardRemapper.TryGetAppleFnState([0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], out var fnUp) && !fnUp);
+        Require(!KeyboardRemapper.TryGetAppleFnState([0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00], out _));
+        Require(!KeyboardRemapper.TryGetAppleFnState([0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80], out _));
         config.Gestures.PointerSensitivity = 0.73;
         config.Gestures.SwapLeftRightButtons = true;
         config.Keyboard.FKeyMode = "custom";

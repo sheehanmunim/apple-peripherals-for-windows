@@ -24,7 +24,7 @@ Keyboard:
 
 - Command, Control, Option, and Caps Lock remaps.
 - Mac-like F1 through F12 icon-row defaults: brightness, Mission Control, Spotlight/Search, Dictation, Notification Center, media, mute, and volume.
-- Fn/Globe action mapping when Windows exposes the key, plus F13 through F19 keybinds and a full F-key mapping dialog.
+- Fn/Globe action mapping through the optional signed Magic Keyboard filter driver, plus F13 through F19 keybinds and a full F-key mapping dialog.
 - Whether keyboard remaps are active only while an Apple keyboard is connected.
 
 Trackpad:
@@ -90,7 +90,7 @@ dotnet run --project .\src\MagicTrackpad.App\MagicTrackpad.App.csproj -c Release
 
 Download `ApplePeripheralsSetup-win-x64.exe` from the latest GitHub release and run it. The setup app is self-contained: it bundles the app runtime, settings app, background bridge, and Microsoft-signed Magic Trackpad Precision Touchpad driver package. It starts the bridge for the current session, creates Start Menu shortcuts, and registers Apple Peripherals for Windows in Windows Apps / Control Panel for uninstall.
 
-Windows may show an Administrator/UAC prompt because setup installs the trackpad driver. A restart may be required after the driver install.
+Windows may show an Administrator/UAC prompt because setup installs driver packages. A restart may be required after driver installation.
 
 Installed files are written to:
 
@@ -178,6 +178,24 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -InstallPrecision
 
 The driver installer downloads the Microsoft-signed MagicTrackpad2ForWindows package, verifies Authenticode signatures, selects AMD64 or ARM64, and installs `AmtPtpDevice.inf` with `pnputil`. Reconnect the trackpad or reboot if Windows keeps the old mouse binding loaded.
 
+## Magic Keyboard Globe/Fn Driver
+
+The Magic Keyboard Globe/Fn key is hidden in a vendor-specific HID report byte that Windows usually keeps inside the system keyboard stack. The app includes source for a HID lower-filter driver that converts that hidden bit into F23, letting the bridge map Globe/Fn to Control while the real Apple Control key can still map to the Windows key.
+
+Build and package the keyboard filter driver with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-keyboard-filter-driver.ps1 -Platform x64
+```
+
+Install a signed package from an elevated PowerShell window:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver.ps1
+```
+
+Public installers must bundle a trusted signed keyboard driver package. See [docs/keyboard-filter-driver.md](docs/keyboard-filter-driver.md).
+
 Manual script uninstall:
 
 ```powershell
@@ -190,4 +208,4 @@ See [docs/architecture.md](docs/architecture.md). The app is split into configur
 
 ## License And Attribution
 
-Licensed under GPL-2.0-or-later. The Apple report parser behavior is based on the GPL Linux `hid-magicmouse` driver; see [docs/references.md](docs/references.md).
+Licensed under GPL-2.0-or-later. The Apple report parser behavior is based on the GPL Linux `hid-magicmouse` driver, and the keyboard lower-filter approach adapts MIT-licensed WinAppleKey behavior; see [docs/references.md](docs/references.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -90,7 +90,9 @@ internal sealed class SetupForm : Form
 
         var body = new Label
         {
-            Text = "Install the settings app, background bridge, and bundled Magic Trackpad driver for Magic Trackpad and Magic Keyboard support.",
+            Text = Installer.HasBundledKeyboardDriver
+                ? "Install the settings app, background bridge, bundled Magic Trackpad driver, and bundled Magic Keyboard Globe/Fn driver."
+                : "Install the settings app, background bridge, and bundled Magic Trackpad driver for Magic Trackpad and Magic Keyboard support.",
             AutoSize = false,
             Height = 64,
             Dock = DockStyle.Top,
@@ -98,7 +100,9 @@ internal sealed class SetupForm : Form
         };
 
         driverCheck.Text = Installer.IsAdministrator
-            ? "Install or update the Magic Trackpad Precision Touchpad driver (included)"
+            ? Installer.HasBundledKeyboardDriver
+                ? "Install or update bundled trackpad and keyboard drivers"
+                : "Install or update the Magic Trackpad Precision Touchpad driver (included)"
             : "Precision Touchpad driver requires Administrator access";
         driverCheck.Checked = Installer.IsAdministrator;
         driverCheck.Enabled = Installer.IsAdministrator;
@@ -179,6 +183,7 @@ internal static class Installer
     private const string TaskName = "ApplePeripheralsBridge";
     private const string DriverPackageUrl = "https://github.com/vitoplantamura/MagicTrackpad2ForWindows/releases/download/v2.0/MT2FW11-20260223-MSSigned.zip";
     private const string DriverResourceName = "MagicTrackpad2ForWindows-MSSigned.zip";
+    private const string KeyboardDriverResourceName = "AppleKeyboardFilterDriver.zip";
     private const string UninstallRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\ApplePeripheralsForWindows";
 
     private static readonly string InstallRoot = Path.Combine(
@@ -209,6 +214,10 @@ internal static class Installer
             return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
         }
     }
+
+    public static bool HasBundledKeyboardDriver =>
+        Assembly.GetExecutingAssembly().GetManifestResourceNames()
+            .Any(name => string.Equals(name, KeyboardDriverResourceName, StringComparison.Ordinal));
 
     public static InstallResult Install(bool installDriver, IProgress<string> progress)
     {
@@ -280,6 +289,11 @@ internal static class Installer
 
             progress.Report("Installing Precision Touchpad driver...");
             rebootRequired = InstallPrecisionDriver(progress);
+            if (HasBundledKeyboardDriver)
+            {
+                progress.Report("Installing Magic Keyboard Globe/Fn driver...");
+                rebootRequired |= InstallKeyboardFilterDriver(progress);
+            }
         }
 
         progress.Report("Registering uninstaller...");
@@ -441,6 +455,54 @@ internal static class Installer
         }
 
         progress.Report("Adding Precision Touchpad driver package...");
+        var pnputil = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "pnputil.exe");
+        var process = RunProcess(pnputil, $"/add-driver \"{infPath}\" /install", wait: true);
+        if (process.ExitCode is not 0 and not 3010)
+        {
+            throw new InvalidOperationException($"pnputil failed with exit code {process.ExitCode}.");
+        }
+
+        return process.ExitCode == 3010;
+    }
+
+    private static bool InstallKeyboardFilterDriver(IProgress<string> progress)
+    {
+        using var embedded = Assembly.GetExecutingAssembly().GetManifestResourceStream(KeyboardDriverResourceName);
+        if (embedded == null)
+        {
+            return false;
+        }
+
+        var driversDir = Path.Combine(InstallRoot, "drivers");
+        Directory.CreateDirectory(driversDir);
+        var zipPath = Path.Combine(driversDir, "AppleKeyboardFilterDriver.zip");
+        var extractRoot = Path.Combine(driversDir, "AppleKeyboardFilterDriver");
+
+        progress.Report("Extracting bundled Magic Keyboard driver package...");
+        using (var target = File.Create(zipPath))
+        {
+            embedded.CopyTo(target);
+        }
+
+        DeleteDirectoryIfExists(extractRoot);
+        ZipFile.ExtractToDirectory(zipPath, extractRoot, overwriteFiles: true);
+
+        var architecture = RuntimeInformation.OSArchitecture == Architecture.Arm64 ? "ARM64" : "AMD64";
+        var driverDir = Directory.EnumerateDirectories(extractRoot, architecture, SearchOption.AllDirectories).FirstOrDefault()
+            ?? extractRoot;
+        var infPath = Directory.EnumerateFiles(driverDir, "AppleKeyboardFilter.inf", SearchOption.AllDirectories).FirstOrDefault()
+            ?? throw new InvalidOperationException($"Could not find {architecture} Apple Keyboard Filter INF.");
+
+        var packageDir = Path.GetDirectoryName(infPath)
+            ?? throw new InvalidOperationException("Could not resolve Apple Keyboard Filter driver directory.");
+        var catalog = Directory.EnumerateFiles(packageDir, "*.cat").FirstOrDefault()
+            ?? throw new InvalidOperationException("Could not find Apple Keyboard Filter driver catalog.");
+        foreach (var file in new[] { catalog })
+        {
+            AssertValidSignature(file);
+        }
+
+        progress.Report("Adding Magic Keyboard driver package...");
         var pnputil = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "pnputil.exe");
         var process = RunProcess(pnputil, $"/add-driver \"{infPath}\" /install", wait: true);
         if (process.ExitCode is not 0 and not 3010)

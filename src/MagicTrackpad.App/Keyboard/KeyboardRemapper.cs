@@ -264,19 +264,38 @@ internal sealed class KeyboardRemapper : IDisposable
     {
         down = false;
 
-        if (report.Length >= 9 && report[0] == 0x01)
+        if (TryGetAppleFnStateFromKeyboardBody(report, 1, out down))
         {
-            down = report[2] != 0;
-            return report[2] <= 1;
+            return true;
         }
 
-        if (report.Length >= 8)
+        if (TryGetAppleFnStateFromKeyboardBody(report, 0, out down))
         {
-            down = report[1] != 0;
-            return report[1] <= 1;
+            return true;
         }
 
         return false;
+    }
+
+    private static bool TryGetAppleFnStateFromKeyboardBody(byte[] report, int offset, out bool down)
+    {
+        down = false;
+        const byte fnMask = 0x02;
+        const int appleKeyboardBodyLength = 9;
+
+        if (report.Length < offset + appleKeyboardBodyLength)
+        {
+            return false;
+        }
+
+        var specialKeyByte = report[offset + 8];
+        if ((specialKeyByte & ~0x03) != 0)
+        {
+            return false;
+        }
+
+        down = (specialKeyByte & fnMask) != 0;
+        return true;
     }
 
     private static bool IsUnchangedAction(string action) =>

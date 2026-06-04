@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MagicTrackpad.Keyboard;
 using MagicTrackpad.Runtime;
 
 namespace MagicTrackpad.Hid;
@@ -15,6 +16,7 @@ internal static class HidDiagnostics
         var captureSeconds = Math.Clamp(seconds, 1, 60);
         var devices = DeviceActions.EnumerateRawInputDevices();
         var trackpads = DeviceCatalog.FindMagicTrackpads(devices).ToList();
+        var keyboards = DeviceCatalog.FindAppleKeyboards(devices).ToList();
         var featureResults = trackpads
             .GroupBy(device => DeviceActions.PhysicalKey(device.Name))
             .Select(group => new FeatureResult(
@@ -37,11 +39,6 @@ internal static class HidDiagnostics
 
         void OnReport(HidDeviceInfo device, byte[] report)
         {
-            if (!device.IsAppleMagicTrackpad)
-            {
-                return;
-            }
-
             lock (sync)
             {
                 var key = device.Name;
@@ -62,9 +59,21 @@ internal static class HidDiagnostics
                     stats.SampleReports.Add(Convert.ToHexString(report));
                 }
 
-                var frames = HidReportParser.ParseReports(report);
-                stats.ParsedFrameCount += frames.Count;
-                stats.MaxTouches = Math.Max(stats.MaxTouches, frames.Select(frame => frame.ActiveTouches.Count).DefaultIfEmpty(0).Max());
+                if (device.IsAppleMagicTrackpad)
+                {
+                    var frames = HidReportParser.ParseReports(report);
+                    stats.ParsedFrameCount += frames.Count;
+                    stats.MaxTouches = Math.Max(stats.MaxTouches, frames.Select(frame => frame.ActiveTouches.Count).DefaultIfEmpty(0).Max());
+                }
+
+                if (device.IsAppleKeyboard && KeyboardRemapper.TryGetAppleFnState(report, out var fnDown))
+                {
+                    stats.KeyboardFnReportCount++;
+                    if (fnDown)
+                    {
+                        stats.KeyboardFnDownCount++;
+                    }
+                }
             }
         }
 
@@ -81,6 +90,7 @@ internal static class HidDiagnostics
                 DateTimeOffset.Now,
                 captureSeconds,
                 trackpads.Select(DeviceSnapshot.FromDevice).ToList(),
+                keyboards.Select(DeviceSnapshot.FromDevice).ToList(),
                 featureResults,
                 statuses,
                 reportStats.Values.Select(stats => stats.ToReportStats()).ToList());
@@ -91,13 +101,14 @@ internal static class HidDiagnostics
             : Path.Combine(AppContext.BaseDirectory, path);
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath) ?? AppContext.BaseDirectory);
         File.WriteAllText(targetPath, JsonSerializer.Serialize(document, JsonOptions));
-        return document.Reports.Any(item => item.ParsedFrameCount > 0) ? 0 : 3;
+        return document.ReaderStatuses.Any(item => item.State == "opened") ? 0 : 3;
     }
 
     private sealed record DiagnosticsDocument(
         DateTimeOffset CapturedAt,
         double Seconds,
         IReadOnlyList<DeviceSnapshot> Trackpads,
+        IReadOnlyList<DeviceSnapshot> Keyboards,
         IReadOnlyList<FeatureResult> FeatureResults,
         IReadOnlyList<DirectHidReaderStatus> ReaderStatuses,
         IReadOnlyList<ReportStats> Reports);
@@ -125,7 +136,7 @@ internal static class HidDiagnostics
                 device.ProductId,
                 device.UsagePage,
                 device.Usage,
-                DeviceActions.IsReadableTrackpadCollection(device),
+                DeviceActions.IsReadableTrackpadCollection(device) || DeviceActions.IsReadableAppleKeyboardCollection(device),
                 device.IsBluetooth);
     }
 
@@ -137,6 +148,8 @@ internal static class HidDiagnostics
         int ReportCount,
         int ParsedFrameCount,
         int MaxTouches,
+        int KeyboardFnReportCount,
+        int KeyboardFnDownCount,
         IReadOnlyList<string> ReportIds,
         IReadOnlyList<string> SampleReports);
 
@@ -151,6 +164,8 @@ internal static class HidDiagnostics
         public int ReportCount { get; set; }
         public int ParsedFrameCount { get; set; }
         public int MaxTouches { get; set; }
+        public int KeyboardFnReportCount { get; set; }
+        public int KeyboardFnDownCount { get; set; }
         public HashSet<byte> ReportIds { get; } = [];
         public List<string> SampleReports { get; } = [];
 
@@ -163,6 +178,8 @@ internal static class HidDiagnostics
                 ReportCount,
                 ParsedFrameCount,
                 MaxTouches,
+                KeyboardFnReportCount,
+                KeyboardFnDownCount,
                 ReportIds.Select(id => $"0x{id:X2}").Order().ToList(),
                 SampleReports);
     }
