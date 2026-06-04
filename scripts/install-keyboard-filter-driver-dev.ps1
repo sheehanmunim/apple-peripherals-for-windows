@@ -61,8 +61,14 @@ function Start-ElevatedSelf {
         $arguments.Add("-NoInstall")
     }
 
-    $process = Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -Verb RunAs -Wait -PassThru
-    exit $process.ExitCode
+    Write-Host "Requesting Administrator approval to install the Apple Keyboard Filter driver..."
+    try {
+        $process = Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -Verb RunAs -WindowStyle Normal -Wait -PassThru
+        exit $process.ExitCode
+    }
+    catch [System.InvalidOperationException] {
+        throw "Administrator approval was canceled. The Globe/Fn key cannot work until the Apple Keyboard Filter driver is installed from an elevated prompt."
+    }
 }
 
 function Get-EffectivePlatform {
