@@ -1754,84 +1754,60 @@ internal sealed class TrackpadPreview : Control
         var stage = new Rectangle(4, 8, Width - 8, Height - 16);
         DrawStage(e.Graphics, stage);
 
-        var width = Math.Min(Math.Max(230, stage.Width - 58), 560);
-        var height = Math.Min(Math.Max(128, stage.Height - 58), (int)Math.Round(width * 0.69));
-        var body = new Rectangle(stage.Left + (stage.Width - width) / 2, stage.Top + Math.Max(20, (stage.Height - height) / 2 - 8), width, height);
-        var wedge = new Rectangle(body.Left + 7, body.Bottom - 16, body.Width - 14, 28);
-        var shadow = new Rectangle(body.Left + 12, wedge.Bottom - 4, body.Width - 24, 18);
+        var width = Math.Min(Math.Max(230, stage.Width - 70), 560);
+        var height = Math.Min(Math.Max(148, stage.Height - 58), (int)Math.Round(width * 0.72));
+        var body = new Rectangle(
+            stage.Left + (stage.Width - width) / 2,
+            stage.Top + Math.Max(18, (stage.Height - height) / 2),
+            width,
+            height);
+        var shadow = new Rectangle(body.Left + 18, body.Bottom - 6, body.Width - 36, 22);
 
-        using (var shadowPath = Rounded(shadow, 18))
+        using (var shadowPath = Rounded(shadow, 24))
         using (var shadowBrush = new PathGradientBrush(shadowPath)
         {
-            CenterColor = Color.FromArgb(82, 0, 0, 0),
+            CenterColor = Color.FromArgb(44, 105, 112, 125),
             SurroundColors = [Color.FromArgb(0, 0, 0, 0)],
         })
         {
             e.Graphics.FillPath(shadowBrush, shadowPath);
         }
 
-        using (var wedgePath = Rounded(wedge, 16))
-        using (var wedgeFill = new LinearGradientBrush(wedge, Color.FromArgb(225, 228, 233), Color.FromArgb(154, 160, 169), LinearGradientMode.Vertical))
-        using (var wedgeBorder = new Pen(Color.FromArgb(142, 148, 158)))
-        {
-            e.Graphics.FillPath(wedgeFill, wedgePath);
-            e.Graphics.DrawPath(wedgeBorder, wedgePath);
-        }
-
-        using var bodyPath = Rounded(body, 18);
-        using var glassFill = new LinearGradientBrush(body, Color.FromArgb(255, 255, 255), Color.FromArgb(235, 238, 243), LinearGradientMode.Vertical);
-        using var glassBorder = new Pen(Color.FromArgb(173, 178, 187));
+        using var bodyPath = Rounded(body, Math.Max(16, body.Height / 12));
+        using var glassFill = new LinearGradientBrush(body, Color.FromArgb(255, 255, 255), Color.FromArgb(231, 234, 241), LinearGradientMode.Vertical);
+        using var glassBorder = new Pen(Color.FromArgb(191, 196, 205), 1.1F);
         e.Graphics.FillPath(glassFill, bodyPath);
         e.Graphics.DrawPath(glassBorder, bodyPath);
 
-        var rear = new Rectangle(body.Left + 26, body.Top + 11, body.Width - 52, 4);
-        using (var rearFill = new LinearGradientBrush(rear, Color.FromArgb(45, 166, 172, 181), Color.FromArgb(0, 255, 255, 255), LinearGradientMode.Horizontal))
+        var topGlow = new Rectangle(body.Left + 12, body.Top + 10, body.Width - 24, body.Height / 2);
+        using (var glowPath = Rounded(topGlow, Math.Max(14, body.Height / 15)))
+        using (var glowFill = new LinearGradientBrush(topGlow, Color.FromArgb(150, 255, 255, 255), Color.FromArgb(8, 255, 255, 255), LinearGradientMode.Vertical))
         {
-            e.Graphics.FillRectangle(rearFill, rear);
+            e.Graphics.FillPath(glowFill, glowPath);
         }
 
-        var inner = Rectangle.Inflate(body, -12, -12);
-        using (var highlight = new Pen(Color.FromArgb(245, 255, 255, 255), 2))
+        var inner = Rectangle.Inflate(body, -8, -8);
+        using (var highlight = new Pen(Color.FromArgb(190, 255, 255, 255), 1.6F))
         {
-            e.Graphics.DrawArc(highlight, inner.Left, inner.Top, inner.Width, inner.Height, 206, 128);
+            e.Graphics.DrawArc(highlight, inner.Left, inner.Top, inner.Width, inner.Height, 194, 146);
         }
 
-        var glassSheen = new Rectangle(body.Left + 18, body.Top + 26, body.Width - 36, body.Height / 2);
-        using (var sheenPath = Rounded(glassSheen, 16))
-        using (var sheenFill = new LinearGradientBrush(glassSheen, Color.FromArgb(90, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), LinearGradientMode.Vertical))
+        var bottomFade = new Rectangle(body.Left + 1, body.Bottom - Math.Max(28, body.Height / 5), body.Width - 2, Math.Max(28, body.Height / 5));
+        using (var fadePath = BottomRounded(bottomFade, Math.Max(16, body.Height / 12)))
+        using (var fadeFill = new LinearGradientBrush(bottomFade, Color.FromArgb(0, 212, 216, 225), Color.FromArgb(58, 190, 195, 204), LinearGradientMode.Vertical))
         {
-            e.Graphics.FillPath(sheenFill, sheenPath);
+            e.Graphics.FillPath(fadeFill, fadePath);
         }
-
-        var port = new Rectangle(body.Left + body.Width / 2 - 15, wedge.Bottom - 12, 30, 6);
-        using (var portPath = Rounded(port, 3))
-        using (var portFill = new LinearGradientBrush(port, Color.FromArgb(126, 132, 142), Color.FromArgb(86, 91, 100), LinearGradientMode.Vertical))
-        {
-            e.Graphics.FillPath(portFill, portPath);
-        }
-
-        var portGlint = new Rectangle(port.Left + 4, port.Top + 1, port.Width - 8, 1);
-        using var glint = new SolidBrush(Color.FromArgb(110, 255, 255, 255));
-        e.Graphics.FillRectangle(glint, portGlint);
     }
 
     private static void DrawStage(Graphics graphics, Rectangle rect)
     {
         using (var stagePath = Rounded(rect, 8))
-        using (var fill = new LinearGradientBrush(rect, Color.FromArgb(250, 252, 255), Color.FromArgb(238, 243, 249), LinearGradientMode.Vertical))
+        using (var fill = new SolidBrush(Color.White))
         using (var border = new Pen(ThemePalette.StrokeSoft))
         {
             graphics.FillPath(fill, stagePath);
             graphics.DrawPath(border, stagePath);
-        }
-
-        using var dot = new SolidBrush(Color.FromArgb(48, 143, 154, 170));
-        for (var y = rect.Top + 18; y < rect.Bottom - 16; y += 18)
-        {
-            for (var x = rect.Left + 20; x < rect.Right - 18; x += 18)
-            {
-                graphics.FillEllipse(dot, x, y, 2, 2);
-            }
         }
     }
 
@@ -1843,6 +1819,19 @@ internal sealed class TrackpadPreview : Control
         path.AddArc(rect.Right - diameter, rect.Top, diameter, diameter, 270, 90);
         path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
         path.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    private static GraphicsPath BottomRounded(Rectangle rect, int radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = radius * 2;
+        path.AddLine(rect.Left, rect.Top, rect.Right, rect.Top);
+        path.AddLine(rect.Right, rect.Top, rect.Right, rect.Bottom - radius);
+        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(rect.Left, rect.Bottom - diameter, diameter, diameter, 90, 90);
+        path.AddLine(rect.Left, rect.Bottom - radius, rect.Left, rect.Top);
         path.CloseFigure();
         return path;
     }
