@@ -7,6 +7,7 @@ static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject);
 #pragma alloc_text(PAGE, DriverUnload)
 #pragma alloc_text(PAGE, AddDevice)
 #pragma alloc_text(PAGE, RemoveDevice)
+#pragma alloc_text(PAGE, GetLowerDeviceType)
 #pragma alloc_text(PAGE, ReadDriverDword)
 #endif
 
@@ -61,7 +62,7 @@ NTSTATUS AddDevice(_In_ PDRIVER_OBJECT DriverObject, _In_ PDEVICE_OBJECT Pdo)
         DriverObject,
         sizeof(DEVICE_EXTENSION),
         NULL,
-        FILE_DEVICE_UNKNOWN,
+        GetLowerDeviceType(Pdo),
         0,
         FALSE,
         &filterDevice);
@@ -87,6 +88,21 @@ NTSTATUS AddDevice(_In_ PDRIVER_OBJECT DriverObject, _In_ PDEVICE_OBJECT Pdo)
     filterDevice->Flags |= lowerDevice->Flags & (DO_DIRECT_IO | DO_BUFFERED_IO | DO_POWER_PAGABLE);
     filterDevice->Flags &= ~DO_DEVICE_INITIALIZING;
     return STATUS_SUCCESS;
+}
+
+ULONG GetLowerDeviceType(_In_ PDEVICE_OBJECT Pdo)
+{
+    PAGED_CODE();
+
+    PDEVICE_OBJECT lowerDevice = IoGetAttachedDeviceReference(Pdo);
+    if (lowerDevice == NULL)
+    {
+        return FILE_DEVICE_UNKNOWN;
+    }
+
+    ULONG deviceType = lowerDevice->DeviceType;
+    ObDereferenceObject(lowerDevice);
+    return deviceType;
 }
 
 NTSTATUS CompleteRequest(_Inout_ PIRP Irp, _In_ NTSTATUS Status, _In_ ULONG_PTR Information)
@@ -151,10 +167,68 @@ NTSTATUS DispatchPnp(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
         return status;
     }
 
+    if (stack->MinorFunction == IRP_MN_DEVICE_USAGE_NOTIFICATION)
+    {
+        if (DeviceObject->AttachedDevice == NULL ||
+            (DeviceObject->AttachedDevice->Flags & DO_POWER_PAGABLE) != 0)
+        {
+            DeviceObject->Flags |= DO_POWER_PAGABLE;
+        }
+
+        IoCopyCurrentIrpStackLocationToNext(Irp);
+        IoSetCompletionRoutine(Irp, UsageNotificationComplete, extension, TRUE, TRUE, TRUE);
+        return IoCallDriver(extension->LowerDeviceObject, Irp);
+    }
+
+    if (stack->MinorFunction == IRP_MN_START_DEVICE)
+    {
+        IoCopyCurrentIrpStackLocationToNext(Irp);
+        IoSetCompletionRoutine(Irp, StartDeviceComplete, extension, TRUE, TRUE, TRUE);
+        return IoCallDriver(extension->LowerDeviceObject, Irp);
+    }
+
     IoSkipCurrentIrpStackLocation(Irp);
     status = IoCallDriver(extension->LowerDeviceObject, Irp);
     IoReleaseRemoveLock(&extension->RemoveLock, Irp);
     return status;
+}
+
+NTSTATUS StartDeviceComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context)
+{
+    PDEVICE_EXTENSION extension = (PDEVICE_EXTENSION)Context;
+    UNREFERENCED_PARAMETER(DeviceObject);
+
+    if (Irp->PendingReturned)
+    {
+        IoMarkIrpPending(Irp);
+    }
+
+    if ((extension->LowerDeviceObject->Characteristics & FILE_REMOVABLE_MEDIA) != 0)
+    {
+        extension->DeviceObject->Characteristics |= FILE_REMOVABLE_MEDIA;
+    }
+
+    IoReleaseRemoveLock(&extension->RemoveLock, Irp);
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS UsageNotificationComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context)
+{
+    PDEVICE_EXTENSION extension = (PDEVICE_EXTENSION)Context;
+    UNREFERENCED_PARAMETER(DeviceObject);
+
+    if (Irp->PendingReturned)
+    {
+        IoMarkIrpPending(Irp);
+    }
+
+    if ((extension->LowerDeviceObject->Flags & DO_POWER_PAGABLE) == 0)
+    {
+        extension->DeviceObject->Flags &= ~DO_POWER_PAGABLE;
+    }
+
+    IoReleaseRemoveLock(&extension->RemoveLock, Irp);
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS InternalIoctlComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context)
