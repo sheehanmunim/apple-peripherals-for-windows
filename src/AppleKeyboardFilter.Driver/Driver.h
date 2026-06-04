@@ -2,8 +2,16 @@
 
 #include <ntddk.h>
 #include <wdm.h>
+#include <initguid.h>
+#include <ntstrsafe.h>
+#include <bthdef.h>
+#include <ntintsafe.h>
+#include <bthguid.h>
 #include <bthioctl.h>
+#include <sdpnode.h>
 #include <bthddi.h>
+#include <bthsdpddi.h>
+#include <bthsdpdef.h>
 #include "usbioctl.h"
 #include "usbdi.h"
 
