@@ -60,7 +60,7 @@ foreach ($legacyPath in @($LegacyStartMenuDir, $LegacyStartupShortcutPath, $Lega
 }
 
 New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
-dotnet publish $ProjectPath -c Release -r $Runtime --self-contained false -o $AppDir
+dotnet publish $ProjectPath -c Release -r $Runtime --self-contained true -p:PublishSingleFile=false -o $AppDir
 
 $ExePath = Join-Path $AppDir "MagicTrackpad.exe"
 if (!(Test-Path $ExePath)) {

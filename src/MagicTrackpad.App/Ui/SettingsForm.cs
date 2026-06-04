@@ -2044,6 +2044,102 @@ internal sealed class KeyboardPreview : Control
 
     private readonly record struct KeyboardKey(string Main, string Top, string Bottom, float Units, KeyGlyph Glyph, LabelAlign Align);
 
+    private readonly record struct KeyHitRegion(string Id, Rectangle Bounds);
+
+    private readonly List<KeyHitRegion> keyRegions = [];
+    private readonly System.Windows.Forms.Timer keyLightTimer;
+    private string? hoverKeyId;
+    private string? litKeyId;
+
+    public KeyboardPreview()
+    {
+        SetStyle(
+            ControlStyles.AllPaintingInWmPaint
+                | ControlStyles.OptimizedDoubleBuffer
+                | ControlStyles.ResizeRedraw
+                | ControlStyles.UserPaint,
+            true);
+
+        TabStop = false;
+        keyLightTimer = new System.Windows.Forms.Timer { Interval = 900 };
+        keyLightTimer.Tick += (_, _) =>
+        {
+            keyLightTimer.Stop();
+            litKeyId = null;
+            Invalidate();
+        };
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            keyLightTimer.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        var hit = HitTestKey(e.Location);
+        var nextHover = hit?.Id;
+        if (nextHover == hoverKeyId)
+        {
+            return;
+        }
+
+        hoverKeyId = nextHover;
+        Cursor = hit is null ? Cursors.Default : Cursors.Hand;
+        Invalidate();
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        if (hoverKeyId is null)
+        {
+            return;
+        }
+
+        hoverKeyId = null;
+        Cursor = Cursors.Default;
+        Invalidate();
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button != MouseButtons.Left)
+        {
+            return;
+        }
+
+        var hit = HitTestKey(e.Location);
+        if (hit is null)
+        {
+            return;
+        }
+
+        keyLightTimer.Stop();
+        litKeyId = hit.Value.Id;
+        Invalidate(hit.Value.Bounds);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        if (litKeyId is null)
+        {
+            return;
+        }
+
+        keyLightTimer.Stop();
+        keyLightTimer.Start();
+        Invalidate();
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
@@ -2097,21 +2193,41 @@ internal sealed class KeyboardPreview : Control
         var innerWidth = keyboard.Width - padX * 2;
         var keyHeight = (keyboard.Height - padY * 2 - rowGap * (rows.Length - 1)) / rows.Length;
         var y = keyboard.Top + padY;
-        foreach (var row in rows)
+        keyRegions.Clear();
+        for (var rowIndex = 0; rowIndex < rows.Length; rowIndex++)
         {
+            var row = rows[rowIndex];
             var totalUnits = row.Sum(key => key.Units);
             var unit = (innerWidth - keyGap * (row.Length - 1)) / totalUnits;
             var rowWidth = (int)Math.Round(totalUnits * unit + keyGap * (row.Length - 1));
             var x = keyboard.Left + padX + Math.Max(0, (innerWidth - rowWidth) / 2);
 
-            foreach (var key in row)
+            for (var keyIndex = 0; keyIndex < row.Length; keyIndex++)
             {
+                var key = row[keyIndex];
                 var keyWidth = (int)Math.Round(key.Units * unit);
-                DrawKey(e.Graphics, new Rectangle(x, y, keyWidth, keyHeight), key);
+                var rect = new Rectangle(x, y, keyWidth, keyHeight);
+                var keyId = $"{rowIndex}:{keyIndex}";
+                keyRegions.Add(new KeyHitRegion(keyId, rect));
+                DrawKey(e.Graphics, rect, key, keyId == litKeyId, keyId == hoverKeyId);
                 x += keyWidth + keyGap;
             }
+
             y += keyHeight + rowGap;
         }
+    }
+
+    private KeyHitRegion? HitTestKey(Point point)
+    {
+        for (var i = keyRegions.Count - 1; i >= 0; i--)
+        {
+            if (keyRegions[i].Bounds.Contains(point))
+            {
+                return keyRegions[i];
+            }
+        }
+
+        return null;
     }
 
     private static void DrawStage(Graphics graphics, Rectangle rect)
@@ -2125,29 +2241,30 @@ internal sealed class KeyboardPreview : Control
         }
     }
 
-    private static void DrawKey(Graphics graphics, Rectangle rect, KeyboardKey key)
+    private static void DrawKey(Graphics graphics, Rectangle rect, KeyboardKey key, bool lit, bool hovered)
     {
+        var textColor = lit ? KeyLitTextColor : KeyTextColor;
         if (key.Glyph == KeyGlyph.UpDown)
         {
-            DrawKeyShell(graphics, rect);
-            using var splitPen = new Pen(Color.FromArgb(122, 126, 132), Math.Max(1F, rect.Height * 0.032F));
+            DrawKeyShell(graphics, rect, lit, hovered);
+            using var splitPen = new Pen(lit ? KeyLitBorderColor : Color.FromArgb(122, 126, 132), Math.Max(1F, rect.Height * 0.032F));
             graphics.DrawLine(splitPen, rect.Left + 2, rect.Top + rect.Height / 2, rect.Right - 2, rect.Top + rect.Height / 2);
-            using var brush = new SolidBrush(KeyTextColor);
+            using var brush = new SolidBrush(textColor);
             DrawArrow(graphics, new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height / 2), ArrowDirection.Up, brush);
             DrawArrow(graphics, new Rectangle(rect.Left, rect.Top + rect.Height / 2, rect.Width, rect.Height / 2), ArrowDirection.Down, brush);
             return;
         }
 
-        DrawKeyShell(graphics, rect);
+        DrawKeyShell(graphics, rect, lit, hovered);
 
         if (key.Glyph != KeyGlyph.None)
         {
-            DrawGlyph(graphics, rect, key.Glyph);
+            DrawGlyph(graphics, rect, key.Glyph, textColor);
         }
 
         if (key.Top.Length > 0)
         {
-            DrawText(graphics, key.Top, rect, KeyTextColor, KeyTopSize(rect), ContentAlignment.TopCenter, new Padding(0, Math.Max(4, rect.Height / 11), 0, 0), false);
+            DrawText(graphics, key.Top, rect, textColor, KeyTopSize(rect), ContentAlignment.TopCenter, new Padding(0, Math.Max(4, rect.Height / 11), 0, 0), false);
         }
 
         if (key.Main.Length > 0)
@@ -2156,51 +2273,63 @@ internal sealed class KeyboardPreview : Control
             {
                 var align = key.Align == LabelAlign.Left ? ContentAlignment.BottomLeft : ContentAlignment.BottomRight;
                 var horizontalInset = Math.Max(8, rect.Width / 10);
-                DrawText(graphics, key.Main, rect, KeyTextColor, KeySmallLabelSize(rect), align, new Padding(horizontalInset, 0, horizontalInset, Math.Max(6, rect.Height / 9)), false);
+                DrawText(graphics, key.Main, rect, textColor, KeySmallLabelSize(rect), align, new Padding(horizontalInset, 0, horizontalInset, Math.Max(6, rect.Height / 9)), false);
             }
             else if (key.Glyph != KeyGlyph.None)
             {
-                DrawText(graphics, key.Main, rect, KeyTextColor, KeyBottomLabelSize(rect), ContentAlignment.BottomCenter, new Padding(0, 0, 0, Math.Max(5, rect.Height / 12)), false);
+                DrawText(graphics, key.Main, rect, textColor, KeyBottomLabelSize(rect), ContentAlignment.BottomCenter, new Padding(0, 0, 0, Math.Max(5, rect.Height / 12)), false);
             }
             else if (key.Top.Length > 0)
             {
-                DrawText(graphics, key.Main, rect, KeyTextColor, KeyMainSize(rect), ContentAlignment.BottomCenter, new Padding(0, 0, 0, Math.Max(4, rect.Height / 13)), true);
+                DrawText(graphics, key.Main, rect, textColor, KeyMainSize(rect), ContentAlignment.BottomCenter, new Padding(0, 0, 0, Math.Max(4, rect.Height / 13)), true);
             }
             else if (key.Main.Length == 1)
             {
-                DrawText(graphics, key.Main, rect, KeyTextColor, KeyLetterSize(rect), ContentAlignment.MiddleCenter, Padding.Empty, true);
+                DrawText(graphics, key.Main, rect, textColor, KeyLetterSize(rect), ContentAlignment.MiddleCenter, Padding.Empty, true);
             }
             else
             {
-                DrawText(graphics, key.Main, rect, KeyTextColor, KeySmallLabelSize(rect), ContentAlignment.MiddleCenter, Padding.Empty, false);
+                DrawText(graphics, key.Main, rect, textColor, KeySmallLabelSize(rect), ContentAlignment.MiddleCenter, Padding.Empty, false);
             }
         }
 
         if (key.Bottom.Length > 0)
         {
-            DrawText(graphics, key.Bottom, rect, KeyTextColor, KeyBottomLabelSize(rect), ContentAlignment.BottomCenter, new Padding(0, 0, 0, Math.Max(5, rect.Height / 12)), false);
+            DrawText(graphics, key.Bottom, rect, textColor, KeyBottomLabelSize(rect), ContentAlignment.BottomCenter, new Padding(0, 0, 0, Math.Max(5, rect.Height / 12)), false);
         }
     }
 
-    private static void DrawKeyShell(Graphics graphics, Rectangle rect)
+    private static void DrawKeyShell(Graphics graphics, Rectangle rect, bool lit, bool hovered)
     {
         var radius = Math.Max(6, Math.Min(11, rect.Height / 5));
-        using (var shadowPath = Rounded(new Rectangle(rect.Left + 1, rect.Top + 2, rect.Width, rect.Height), radius))
-        using (var shadow = new SolidBrush(Color.FromArgb(42, 0, 0, 0)))
+        var shadowOffset = lit ? 1 : 2;
+        using (var shadowPath = Rounded(new Rectangle(rect.Left + 1, rect.Top + shadowOffset, rect.Width, rect.Height), radius))
+        using (var shadow = new SolidBrush(lit ? Color.FromArgb(26, 0, 92, 180) : Color.FromArgb(42, 0, 0, 0)))
         {
             graphics.FillPath(shadow, shadowPath);
         }
 
         using var path = Rounded(rect, radius);
-        using var fill = new LinearGradientBrush(rect, Color.FromArgb(254, 255, 255), Color.FromArgb(238, 240, 244), LinearGradientMode.Vertical);
-        using var border = new Pen(Color.FromArgb(47, 50, 56), Math.Max(1.15F, rect.Height * 0.042F));
+        var top = lit ? Color.FromArgb(235, 247, 255) : hovered ? Color.FromArgb(250, 253, 255) : Color.FromArgb(254, 255, 255);
+        var bottom = lit ? Color.FromArgb(196, 227, 255) : hovered ? Color.FromArgb(231, 241, 249) : Color.FromArgb(238, 240, 244);
+        var borderColor = lit ? KeyLitBorderColor : hovered ? Color.FromArgb(75, 130, 170) : Color.FromArgb(47, 50, 56);
+        using var fill = new LinearGradientBrush(rect, top, bottom, LinearGradientMode.Vertical);
+        using var border = new Pen(borderColor, lit ? Math.Max(1.8F, rect.Height * 0.052F) : Math.Max(1.15F, rect.Height * 0.042F));
         graphics.FillPath(fill, path);
         graphics.DrawPath(border, path);
 
         var shineRect = new Rectangle(rect.Left + 3, rect.Top + 3, Math.Max(1, rect.Width - 6), Math.Max(1, rect.Height / 2));
-        using var highlight = new LinearGradientBrush(shineRect, Color.FromArgb(150, 255, 255, 255), Color.FromArgb(15, 255, 255, 255), LinearGradientMode.Vertical);
+        using var highlight = new LinearGradientBrush(shineRect, lit ? Color.FromArgb(190, 255, 255, 255) : Color.FromArgb(150, 255, 255, 255), Color.FromArgb(15, 255, 255, 255), LinearGradientMode.Vertical);
         using var highlightPath = Rounded(shineRect, Math.Max(4, radius - 2));
         graphics.FillPath(highlight, highlightPath);
+
+        if (lit)
+        {
+            var glowRect = Rectangle.Inflate(rect, -Math.Max(3, rect.Width / 18), -Math.Max(3, rect.Height / 8));
+            using var glowPath = Rounded(glowRect, Math.Max(4, radius - 4));
+            using var glow = new SolidBrush(Color.FromArgb(80, 120, 190, 255));
+            graphics.FillPath(glow, glowPath);
+        }
     }
 
     private static KeyboardKey[][] KeyboardRows() =>
@@ -2219,6 +2348,10 @@ internal sealed class KeyboardPreview : Control
     }
 
     private static Color KeyTextColor => Color.FromArgb(128, 132, 136);
+
+    private static Color KeyLitTextColor => Color.FromArgb(42, 92, 138);
+
+    private static Color KeyLitBorderColor => Color.FromArgb(0, 120, 212);
 
     private static float KeyTopSize(Rectangle rect) => Math.Clamp(rect.Height * 0.18F, 7.5F, 13F);
 
@@ -2250,9 +2383,8 @@ internal sealed class KeyboardPreview : Control
         TextRenderer.DrawText(graphics, text, font, area, color, flags);
     }
 
-    private static void DrawGlyph(Graphics graphics, Rectangle rect, KeyGlyph glyph)
+    private static void DrawGlyph(Graphics graphics, Rectangle rect, KeyGlyph glyph, Color color)
     {
-        var color = KeyTextColor;
         using var pen = new Pen(color, Math.Max(1F, rect.Height * 0.045F))
         {
             StartCap = LineCap.Round,
