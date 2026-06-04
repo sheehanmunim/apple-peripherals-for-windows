@@ -19,6 +19,8 @@ internal sealed class KeyboardRemapper : IDisposable
     private const ushort VkF12 = 0x7B;
     private const ushort VkF13 = 0x7C;
     private const ushort VkF19 = 0x82;
+    private const ushort VkF23 = 0x86;
+    private const ushort VkF24 = 0x87;
 
     private readonly IInputInjector injector;
     private readonly NativeMethods.LowLevelKeyboardProc callback;
@@ -125,6 +127,12 @@ internal sealed class KeyboardRemapper : IDisposable
 
         if (IsFunctionHotkey(vk))
         {
+            if (SystemActions.TryRun(action))
+            {
+                suppressedKeyUps.Add(vk);
+                return true;
+            }
+
             SendHotkey(action);
             suppressedKeyUps.Add(vk);
             return true;
@@ -205,6 +213,7 @@ internal sealed class KeyboardRemapper : IDisposable
             0x80 => config.F17,
             0x81 => config.F18,
             0x82 => config.F19,
+            VkF23 or VkF24 => config.FnGlobe,
             _ => null,
         };
     }
@@ -212,7 +221,7 @@ internal sealed class KeyboardRemapper : IDisposable
     private bool UseCustomFKeys =>
         NormalizeAction(config.FKeyMode) == "custom";
 
-    private static bool IsFunctionHotkey(ushort vk) => vk is >= VkF1 and <= VkF19;
+    private static bool IsFunctionHotkey(ushort vk) => vk is >= VkF1 and <= VkF24;
 
     private static bool IsUnchangedAction(string action) =>
         NormalizeAction(action) is "" or "unchanged";

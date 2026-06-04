@@ -37,6 +37,15 @@ public sealed class GestureConfig
     public string PinchZoomModifier { get; set; } = "Ctrl";
     public double PinchSensitivity { get; set; } = 0.55;
     public double PinchThreshold { get; set; } = 14.0;
+    public bool SmartZoomEnabled { get; set; } = true;
+    public double SmartZoomDoubleTapSeconds { get; set; } = 0.35;
+    public bool RotateEnabled { get; set; } = true;
+    public double RotateThresholdDegrees { get; set; } = 18.0;
+    public bool TwoFingerSwipePagesEnabled { get; set; } = true;
+    public double TwoFingerSwipeThreshold { get; set; } = 520.0;
+    public bool FourFingerPinchEnabled { get; set; } = true;
+    public double FourFingerPinchThreshold { get; set; } = 180.0;
+    public bool FourFingerTapEnabled { get; set; } = true;
     public bool ThreeFingerSwipesEnabled { get; set; } = true;
     public double SwipeThreshold { get; set; } = 650.0;
     public double SwipeVerticalThreshold { get; set; } = 540.0;
@@ -45,6 +54,16 @@ public sealed class GestureConfig
 
 public sealed class HotkeyConfig
 {
+    public string TwoFingerSwipeLeft { get; set; } = "BrowserBack";
+    public string TwoFingerSwipeRight { get; set; } = "BrowserForward";
+    public string SmartZoomIn { get; set; } = "Ctrl+Plus";
+    public string SmartZoomOut { get; set; } = "Ctrl+0";
+    public string RotateClockwise { get; set; } = "Ctrl+R";
+    public string RotateCounterClockwise { get; set; } = "Ctrl+Shift+R";
+    public string FourFingerPinchIn { get; set; } = "Win";
+    public string FourFingerSpread { get; set; } = "Win+D";
+    public string FourFingerTap { get; set; } = "Win+N";
+    public string ThreeFingerTap { get; set; } = "none";
     public string ThreeFingerSwipeLeft { get; set; } = "Win+Ctrl+Left";
     public string ThreeFingerSwipeRight { get; set; } = "Win+Ctrl+Right";
     public string ThreeFingerSwipeUp { get; set; } = "Win+Tab";
@@ -60,7 +79,7 @@ public sealed class KeyboardConfig
     public bool Enabled { get; set; } = true;
     public bool OnlyWhenAppleKeyboardPresent { get; set; } = true;
     public bool SwapExchangedKeys { get; set; } = true;
-    public string FKeyMode { get; set; } = "standard";
+    public string FKeyMode { get; set; } = "custom";
     public string LeftCommand { get; set; } = "Ctrl";
     public string RightCommand { get; set; } = "Ctrl";
     public string LeftControl { get; set; } = "Win";
@@ -68,18 +87,19 @@ public sealed class KeyboardConfig
     public string LeftOption { get; set; } = "Alt";
     public string RightOption { get; set; } = "Alt";
     public string CapsLock { get; set; } = "CapsLock";
-    public string F1 { get; set; } = "unchanged";
-    public string F2 { get; set; } = "unchanged";
-    public string F3 { get; set; } = "unchanged";
-    public string F4 { get; set; } = "unchanged";
-    public string F5 { get; set; } = "unchanged";
-    public string F6 { get; set; } = "unchanged";
-    public string F7 { get; set; } = "unchanged";
-    public string F8 { get; set; } = "unchanged";
-    public string F9 { get; set; } = "unchanged";
-    public string F10 { get; set; } = "unchanged";
-    public string F11 { get; set; } = "unchanged";
-    public string F12 { get; set; } = "unchanged";
+    public string FnGlobe { get; set; } = "Win+Period";
+    public string F1 { get; set; } = "BrightnessDown";
+    public string F2 { get; set; } = "BrightnessUp";
+    public string F3 { get; set; } = "Win+Tab";
+    public string F4 { get; set; } = "Win+S";
+    public string F5 { get; set; } = "Win+H";
+    public string F6 { get; set; } = "Win+N";
+    public string F7 { get; set; } = "MediaPrevious";
+    public string F8 { get; set; } = "MediaPlayPause";
+    public string F9 { get; set; } = "MediaNext";
+    public string F10 { get; set; } = "VolumeMute";
+    public string F11 { get; set; } = "VolumeDown";
+    public string F12 { get; set; } = "VolumeUp";
     public string F13 { get; set; } = "none";
     public string F14 { get; set; } = "none";
     public string F15 { get; set; } = "none";
@@ -87,6 +107,34 @@ public sealed class KeyboardConfig
     public string F17 { get; set; } = "none";
     public string F18 { get; set; } = "none";
     public string F19 { get; set; } = "none";
+
+    public void ApplyMacDefaultsIfOldConfig()
+    {
+        if (!IsStandardUnchangedFRow())
+        {
+            return;
+        }
+
+        var defaults = new KeyboardConfig();
+        FKeyMode = defaults.FKeyMode;
+        F1 = defaults.F1;
+        F2 = defaults.F2;
+        F3 = defaults.F3;
+        F4 = defaults.F4;
+        F5 = defaults.F5;
+        F6 = defaults.F6;
+        F7 = defaults.F7;
+        F8 = defaults.F8;
+        F9 = defaults.F9;
+        F10 = defaults.F10;
+        F11 = defaults.F11;
+        F12 = defaults.F12;
+    }
+
+    private bool IsStandardUnchangedFRow() =>
+        string.Equals(FKeyMode, "standard", StringComparison.OrdinalIgnoreCase) &&
+        new[] { F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12 }
+            .All(value => string.Equals(value, "unchanged", StringComparison.OrdinalIgnoreCase));
 }
 
 public static class ConfigStore
@@ -114,6 +162,7 @@ public static class ConfigStore
         config.Gestures ??= new GestureConfig();
         config.Gestures.Hotkeys ??= new HotkeyConfig();
         config.Keyboard ??= new KeyboardConfig();
+        config.Keyboard.ApplyMacDefaultsIfOldConfig();
         return config;
     }
 

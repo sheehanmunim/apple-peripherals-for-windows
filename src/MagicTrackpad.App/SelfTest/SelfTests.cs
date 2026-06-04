@@ -29,6 +29,9 @@ internal static class SelfTests
         var parsed = Hotkeys.Parse("Win+Ctrl+Left");
         Require(parsed.SequenceEqual(new ushort[] { 0x5B, 0x11, 0x25 }));
         Require(Hotkeys.Normalize("windows-control-left") == "Win+Ctrl+Left");
+        Require(Hotkeys.Normalize("ctrl-plus") == "Ctrl+Plus");
+        Require(Hotkeys.Parse("MediaPlayPause").SequenceEqual(new ushort[] { 0xB3 }));
+        Require(Hotkeys.Parse("BrightnessDown").Count == 0);
         Require(Hotkeys.Parse("unchanged").Count == 0);
     }
 
@@ -62,6 +65,22 @@ internal static class SelfTests
         engine.ProcessFrame(Frame([Touch(1, 500, 0), Touch(2, 600, 0), Touch(3, 700, 0)]), DateTimeOffset.UnixEpoch);
         engine.ProcessFrame(Frame([Touch(1, 300, 0), Touch(2, 400, 0), Touch(3, 500, 0)]), DateTimeOffset.UnixEpoch.AddMilliseconds(100));
         Require(injector.Events.Contains("hotkey:18,37"));
+
+        injector = new DryRunInputInjector();
+        config = new GestureConfig { TwoFingerSwipeThreshold = 100 };
+        config.Hotkeys.TwoFingerSwipeLeft = "Alt+Left";
+        engine = new GestureEngine(injector, config);
+        engine.ProcessFrame(Frame([Touch(1, 500, 0), Touch(2, 650, 0)]), DateTimeOffset.UnixEpoch);
+        engine.ProcessFrame(Frame([Touch(1, 250, 0), Touch(2, 400, 0)]), DateTimeOffset.UnixEpoch.AddMilliseconds(100));
+        Require(injector.Events.Contains("hotkey:18,37"));
+
+        injector = new DryRunInputInjector();
+        config = new GestureConfig { FourFingerPinchThreshold = 40 };
+        config.Hotkeys.FourFingerSpread = "Win+D";
+        engine = new GestureEngine(injector, config);
+        engine.ProcessFrame(Frame([Touch(1, -50, -50), Touch(2, 50, -50), Touch(3, -50, 50), Touch(4, 50, 50)]), DateTimeOffset.UnixEpoch);
+        engine.ProcessFrame(Frame([Touch(1, -120, -120), Touch(2, 120, -120), Touch(3, -120, 120), Touch(4, 120, 120)]), DateTimeOffset.UnixEpoch.AddMilliseconds(100));
+        Require(injector.Events.Contains("hotkey:91,68"));
     }
 
     private static void TestConfigRoundTrip()

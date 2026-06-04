@@ -19,6 +19,7 @@ internal static class NativeMethods
     public const int WM_SYSKEYUP = 0x0105;
     public const int WH_KEYBOARD_LL = 13;
     public const int LLKHF_INJECTED = 0x10;
+    public const uint MonitorDefaultToNearest = 2;
 
     public const uint GenericRead = 0x80000000;
     public const uint GenericWrite = 0x40000000;
@@ -82,6 +83,40 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     public static extern uint SendInput(uint inputCount, Input[] inputs, int inputSize);
 
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromPoint(Point point, uint flags);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetNumberOfPhysicalMonitorsFromHMONITOR(
+        IntPtr monitor,
+        out uint numberOfPhysicalMonitors);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetPhysicalMonitorsFromHMONITOR(
+        IntPtr monitor,
+        uint physicalMonitorArraySize,
+        [Out] PhysicalMonitor[] physicalMonitorArray);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool DestroyPhysicalMonitors(
+        uint physicalMonitorArraySize,
+        [In] PhysicalMonitor[] physicalMonitorArray);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetMonitorBrightness(
+        IntPtr monitor,
+        out uint minimumBrightness,
+        out uint currentBrightness,
+        out uint maximumBrightness);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetMonitorBrightness(IntPtr monitor, uint newBrightness);
+
     public delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -97,6 +132,22 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Point
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct PhysicalMonitor
+    {
+        public IntPtr Handle;
+
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string Description;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     public struct RawInputDeviceList

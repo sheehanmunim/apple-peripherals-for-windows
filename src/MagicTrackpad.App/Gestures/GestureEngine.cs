@@ -9,8 +9,11 @@ public sealed class GestureEngine
     private readonly IInputInjector injector;
     private GestureConfig config;
     private TouchSession? session;
+    private readonly object pendingTapLock = new();
+    private PendingTap? pendingTap;
     private bool lastClickDown;
     private string? activeButton;
+    private bool smartZoomed;
 
     public GestureEngine(IInputInjector injector, GestureConfig config)
     {
@@ -22,6 +25,7 @@ public sealed class GestureEngine
     {
         config = nextConfig;
         session = null;
+        CancelPendingTap();
     }
 
     public void ProcessFrame(TrackpadFrame frame, DateTimeOffset? now = null)
@@ -83,6 +87,9 @@ public sealed class GestureEngine
                 StartCentroid = center,
                 LastCentroid = center,
                 LastDistance = TwoTouchDistance(active),
+                LastAngle = TwoTouchAngle(active),
+                StartSpreadDistance = SpreadDistance(active),
+                LastSpreadDistance = SpreadDistance(active),
             };
             return;
         }
@@ -99,10 +106,16 @@ public sealed class GestureEngine
         }
         else if (count == 2)
         {
-            HandleTwoFinger(active, dx, dy, session);
+            HandleTwoFinger(active, dx, dy, totalDx, totalDy, session);
         }
         else if (count >= 3)
         {
+            if (count >= 4 && HandleFourOrFiveFingerPinch(active, session))
+            {
+                session.LastCentroid = center;
+                return;
+            }
+
             HandleSwipe(totalDx, totalDy, session);
         }
 
@@ -127,11 +140,30 @@ public sealed class GestureEngine
         }
         else if (session.Count == 2 && config.SecondaryClickEnabled)
         {
+            if (config.SmartZoomEnabled)
+            {
+                if (TryConsumePendingTap())
+                {
+                    SendSmartZoom();
+                    return;
+                }
+
+                QueuePendingTap(config.TwoFingerTapButton);
+                return;
+            }
+
             ClickConfiguredButton(config.TwoFingerTapButton);
         }
         else if (session.Count == 3 && config.ThreeFingerMiddleClick)
         {
-            ClickConfiguredButton(config.ThreeFingerTapButton);
+            if (!SendConfiguredHotkey(config.Hotkeys.ThreeFingerTap))
+            {
+                ClickConfiguredButton(config.ThreeFingerTapButton);
+            }
+        }
+        else if (session.Count >= 4 && config.FourFingerTapEnabled)
+        {
+            SendConfiguredHotkey(config.Hotkeys.FourFingerTap);
         }
     }
 
@@ -153,8 +185,13 @@ public sealed class GestureEngine
         }
     }
 
-    private void HandleTwoFinger(IReadOnlyList<Touch> active, double dx, double dy, TouchSession session)
+    private void HandleTwoFinger(IReadOnlyList<Touch> active, double dx, double dy, double totalDx, double totalDy, TouchSession session)
     {
+        if (HandleTwoFingerPageSwipe(totalDx, totalDy, session))
+        {
+            return;
+        }
+
         var currentDistance = TwoTouchDistance(active);
         var pinchDelta = currentDistance != null && session.LastDistance != null
             ? currentDistance.Value - session.LastDistance.Value
@@ -174,7 +211,8 @@ public sealed class GestureEngine
             }
         }
 
-        if (didPinch || !config.ScrollEnabled)
+        var didRotate = HandleTwoFingerRotate(active, session);
+        if (didPinch || didRotate || !config.ScrollEnabled)
         {
             return;
         }
@@ -200,6 +238,73 @@ public sealed class GestureEngine
             injector.Wheel(horizontal: wheelX);
             session.ScrollXAccumulator -= wheelX;
         }
+    }
+
+    private bool HandleTwoFingerPageSwipe(double totalDx, double totalDy, TouchSession session)
+    {
+        if (!config.TwoFingerSwipePagesEnabled || session.SwipeFired)
+        {
+            return false;
+        }
+
+        if (Math.Abs(totalDx) <= config.TwoFingerSwipeThreshold || Math.Abs(totalDx) <= Math.Abs(totalDy) * 1.35)
+        {
+            return false;
+        }
+
+        SendConfiguredHotkey(totalDx < 0 ? config.Hotkeys.TwoFingerSwipeLeft : config.Hotkeys.TwoFingerSwipeRight);
+        session.SwipeFired = true;
+        return true;
+    }
+
+    private bool HandleTwoFingerRotate(IReadOnlyList<Touch> active, TouchSession session)
+    {
+        var currentAngle = TwoTouchAngle(active);
+        if (!config.RotateEnabled || currentAngle == null || session.LastAngle == null)
+        {
+            session.LastAngle = currentAngle;
+            return false;
+        }
+
+        var delta = NormalizeAngle(currentAngle.Value - session.LastAngle.Value);
+        session.LastAngle = currentAngle;
+        session.RotationAccumulator += delta;
+        if (Math.Abs(session.RotationAccumulator) < config.RotateThresholdDegrees)
+        {
+            return false;
+        }
+
+        SendConfiguredHotkey(session.RotationAccumulator > 0
+            ? config.Hotkeys.RotateClockwise
+            : config.Hotkeys.RotateCounterClockwise);
+        session.RotationAccumulator = 0;
+        return true;
+    }
+
+    private bool HandleFourOrFiveFingerPinch(IReadOnlyList<Touch> active, TouchSession session)
+    {
+        var spread = SpreadDistance(active);
+        if (spread == null)
+        {
+            return false;
+        }
+
+        session.LastSpreadDistance = spread;
+        if (!config.FourFingerPinchEnabled || session.PinchFired || session.StartSpreadDistance == null)
+        {
+            return false;
+        }
+
+        var delta = spread.Value - session.StartSpreadDistance.Value;
+        if (Math.Abs(delta) < config.FourFingerPinchThreshold)
+        {
+            return false;
+        }
+
+        SendConfiguredHotkey(delta < 0 ? config.Hotkeys.FourFingerPinchIn : config.Hotkeys.FourFingerSpread);
+        session.PinchFired = true;
+        session.SwipeFired = true;
+        return true;
     }
 
     private void HandleSwipe(double totalDx, double totalDy, TouchSession session)
@@ -239,13 +344,16 @@ public sealed class GestureEngine
         };
     }
 
-    private void SendConfiguredHotkey(string value)
+    private bool SendConfiguredHotkey(string value)
     {
         var keys = Hotkeys.Parse(value);
         if (keys.Count > 0)
         {
             injector.Hotkey(keys);
+            return true;
         }
+
+        return SystemActions.TryRun(value);
     }
 
     private void SendPinchWheel(int amount)
@@ -294,6 +402,97 @@ public sealed class GestureEngine
 
     private static double? TwoTouchDistance(IReadOnlyList<Touch> touches) =>
         touches.Count == 2 ? HidReportParser.Distance(touches[0], touches[1]) : null;
+
+    private static double? TwoTouchAngle(IReadOnlyList<Touch> touches)
+    {
+        if (touches.Count != 2)
+        {
+            return null;
+        }
+
+        return Math.Atan2(touches[1].Y - touches[0].Y, touches[1].X - touches[0].X) * 180.0 / Math.PI;
+    }
+
+    private static double? SpreadDistance(IReadOnlyList<Touch> touches)
+    {
+        if (touches.Count < 4)
+        {
+            return null;
+        }
+
+        var center = HidReportParser.Centroid(touches);
+        return touches.Average(touch =>
+        {
+            var dx = touch.X - center.X;
+            var dy = touch.Y - center.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
+        });
+    }
+
+    private static double NormalizeAngle(double value)
+    {
+        while (value > 180) value -= 360;
+        while (value < -180) value += 360;
+        return value;
+    }
+
+    private void SendSmartZoom()
+    {
+        SendConfiguredHotkey(smartZoomed ? config.Hotkeys.SmartZoomOut : config.Hotkeys.SmartZoomIn);
+        smartZoomed = !smartZoomed;
+    }
+
+    private void QueuePendingTap(string button)
+    {
+        CancelPendingTap();
+        var delay = Math.Max(80, (int)Math.Round(config.SmartZoomDoubleTapSeconds * 1000));
+        var tap = new PendingTap(button);
+        tap.Timer = new System.Threading.Timer(_ => FlushPendingTap(tap), null, delay, Timeout.Infinite);
+        lock (pendingTapLock)
+        {
+            pendingTap = tap;
+        }
+    }
+
+    private bool TryConsumePendingTap()
+    {
+        lock (pendingTapLock)
+        {
+            if (pendingTap == null)
+            {
+                return false;
+            }
+
+            pendingTap.Timer?.Dispose();
+            pendingTap = null;
+            return true;
+        }
+    }
+
+    private void FlushPendingTap(PendingTap tap)
+    {
+        lock (pendingTapLock)
+        {
+            if (!ReferenceEquals(pendingTap, tap))
+            {
+                return;
+            }
+
+            pendingTap = null;
+        }
+
+        tap.Timer?.Dispose();
+        ClickConfiguredButton(tap.Button);
+    }
+
+    private void CancelPendingTap()
+    {
+        lock (pendingTapLock)
+        {
+            pendingTap?.Timer?.Dispose();
+            pendingTap = null;
+        }
+    }
 }
 
 internal sealed class TouchSession
@@ -304,8 +503,19 @@ internal sealed class TouchSession
     public (double X, double Y) LastCentroid { get; set; }
     public double MaxDistance { get; set; }
     public bool SwipeFired { get; set; }
+    public bool PinchFired { get; set; }
     public double PinchAccumulator { get; set; }
+    public double RotationAccumulator { get; set; }
     public double ScrollXAccumulator { get; set; }
     public double ScrollYAccumulator { get; set; }
     public double? LastDistance { get; set; }
+    public double? LastAngle { get; set; }
+    public double? StartSpreadDistance { get; init; }
+    public double? LastSpreadDistance { get; set; }
+}
+
+internal sealed class PendingTap(string button)
+{
+    public string Button { get; } = button;
+    public System.Threading.Timer? Timer { get; set; }
 }

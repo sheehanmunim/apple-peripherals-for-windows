@@ -15,8 +15,8 @@ Apple Peripherals for Windows is a native Windows desktop application written in
 - `Hid` identifies Apple Magic Trackpad and Magic Keyboard devices, sends feature reports, and parses Apple 9-byte multitouch records.
 - `Runtime` hosts the hidden Raw Input window, reacts to Bluetooth reconnect/device-change messages, refreshes multitouch mode, updates keyboard presence, and reloads settings while the bridge runs.
 - `Keyboard` installs a low-level keyboard hook for configured Command, Control, Option, Caps Lock, and F13-F19 remaps while Apple keyboard support is enabled.
-- `Gestures` turns touch frames into pointer movement, scroll, taps, clicks, pinch zoom, and swipe keybinds.
-- `Input` wraps `SendInput` so gestures can inject mouse and keyboard events through one interface.
+- `Gestures` turns touch frames into pointer movement, scroll, taps, clicks, pinch zoom, Smart Zoom, rotate, page swipes, multi-finger swipes, and four/five-finger pinch/spread actions.
+- `Input` wraps `SendInput` and named system actions so gestures and keyboard mappings can inject mouse events, hotkeys, media keys, volume keys, browser navigation, and monitor brightness adjustments where Windows exposes them.
 - `Ui` contains the native WinForms settings app.
 - `SelfTest` validates the parser and gesture engine without physical hardware.
 

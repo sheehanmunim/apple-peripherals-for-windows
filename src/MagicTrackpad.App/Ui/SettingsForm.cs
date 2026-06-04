@@ -189,11 +189,21 @@ public sealed class SettingsForm : Form
         AddCheck(two, "NoHorizontalScroll", "No horizontal scrolling", 28);
         AddCheck(two, "NaturalScroll", "Inverse both scroll directions", 28);
         AddCheck(two, "PinchZoomEnabled", "Pinch to zoom", 28);
+        AddCheck(two, "SmartZoomEnabled", "Smart zoom double tap", 28);
+        AddCheck(two, "RotateEnabled", "Rotate with two fingers", 28);
+        AddCheck(two, "TwoFingerSwipePagesEnabled", "Swipe left/right between pages", 28);
         AddSlider(two, "ScrollSensitivity", "Speed:", 5, 200, "Slow", "Fast");
         AddSlider(two, "PinchSensitivity", "Pinch:", 10, 200, "Light", "Strong");
+        AddHotkey(two, "TwoFingerSwipeLeft", "2 finger left");
+        AddHotkey(two, "TwoFingerSwipeRight", "2 finger right");
+        AddHotkey(two, "SmartZoomIn", "Zoom in");
+        AddHotkey(two, "SmartZoomOut", "Zoom reset");
+        AddHotkey(two, "RotateClockwise", "Rotate CW");
+        AddHotkey(two, "RotateCounterClockwise", "Rotate CCW");
 
         var three = Group(middle, "3 Finger Gestures", MainColumnWidth);
         AddCheck(three, "ThreeFingerTap", "Tap to middle click");
+        AddHotkey(three, "ThreeFingerTapHotkey", "Tap hotkey");
         AddCheck(three, "ThreeFingerSwipesEnabled", "Enable 3 and 4 finger swipe keybinds");
         AddHotkey(three, "ThreeFingerSwipeLeft", "3 finger left");
         AddHotkey(three, "ThreeFingerSwipeRight", "3 finger right");
@@ -205,6 +215,11 @@ public sealed class SettingsForm : Form
         AddHotkey(four, "FourFingerSwipeRight", "4 finger right");
         AddHotkey(four, "FourFingerSwipeUp", "4 finger up");
         AddHotkey(four, "FourFingerSwipeDown", "4 finger down");
+        AddCheck(four, "FourFingerPinchEnabled", "Pinch/spread for Launchpad and desktop");
+        AddCheck(four, "FourFingerTapEnabled", "Tap for Notification Center");
+        AddHotkey(four, "FourFingerPinchIn", "Pinch in");
+        AddHotkey(four, "FourFingerSpread", "Spread out");
+        AddHotkey(four, "FourFingerTap", "4 finger tap");
         AddSlider(four, "SwipeThreshold", "Left/right sense:", 100, 1400, "Short", "Long");
         AddSlider(four, "SwipeVerticalThreshold", "Up/down sense:", 100, 1400, "Short", "Long");
 
@@ -258,6 +273,7 @@ public sealed class SettingsForm : Form
         AddCheck(other, "KeyboardEnabled", "Enable Apple keyboard support");
         AddCheck(other, "KeyboardOnlyWhenAppleKeyboardPresent", "Only apply while an Apple keyboard is connected");
         AddCheck(other, "KeyboardSwapExchangedKeys", "Swap exchanged modifier keys");
+        AddHotkey(other, "KeyboardFnGlobe", "Fn / Globe key");
 
         var modifiers = Group(right, "Modifier Key Mappings", KeyboardRightWidth);
         var actions = KeyActionChoices();
@@ -797,10 +813,25 @@ public sealed class SettingsForm : Form
         Set("TapMaxDistance", (int)Math.Round(config.Gestures.TapMaxDistance));
         Set("PinchZoomEnabled", config.Gestures.PinchZoomEnabled);
         Set("PinchSensitivity", Scale(config.Gestures.PinchSensitivity, 100));
+        Set("SmartZoomEnabled", config.Gestures.SmartZoomEnabled);
+        Set("RotateEnabled", config.Gestures.RotateEnabled);
+        Set("TwoFingerSwipePagesEnabled", config.Gestures.TwoFingerSwipePagesEnabled);
+        Set("FourFingerPinchEnabled", config.Gestures.FourFingerPinchEnabled);
+        Set("FourFingerTapEnabled", config.Gestures.FourFingerTapEnabled);
         Set("ThreeFingerSwipesEnabled", config.Gestures.ThreeFingerSwipesEnabled);
         Set("SwipeThreshold", (int)Math.Round(config.Gestures.SwipeThreshold));
         Set("SwipeVerticalThreshold", (int)Math.Round(config.Gestures.SwipeVerticalThreshold));
         Set("SwapLeftRightButtons", config.Gestures.SwapLeftRightButtons);
+        Set("TwoFingerSwipeLeft", config.Gestures.Hotkeys.TwoFingerSwipeLeft);
+        Set("TwoFingerSwipeRight", config.Gestures.Hotkeys.TwoFingerSwipeRight);
+        Set("SmartZoomIn", config.Gestures.Hotkeys.SmartZoomIn);
+        Set("SmartZoomOut", config.Gestures.Hotkeys.SmartZoomOut);
+        Set("RotateClockwise", config.Gestures.Hotkeys.RotateClockwise);
+        Set("RotateCounterClockwise", config.Gestures.Hotkeys.RotateCounterClockwise);
+        Set("FourFingerPinchIn", config.Gestures.Hotkeys.FourFingerPinchIn);
+        Set("FourFingerSpread", config.Gestures.Hotkeys.FourFingerSpread);
+        Set("FourFingerTap", config.Gestures.Hotkeys.FourFingerTap);
+        Set("ThreeFingerTapHotkey", config.Gestures.Hotkeys.ThreeFingerTap);
         Set("ThreeFingerSwipeLeft", config.Gestures.Hotkeys.ThreeFingerSwipeLeft);
         Set("ThreeFingerSwipeRight", config.Gestures.Hotkeys.ThreeFingerSwipeRight);
         Set("ThreeFingerSwipeUp", config.Gestures.Hotkeys.ThreeFingerSwipeUp);
@@ -822,6 +853,7 @@ public sealed class SettingsForm : Form
         Set("KeyboardLeftOption", config.Keyboard.LeftOption);
         Set("KeyboardRightOption", config.Keyboard.RightOption);
         Set("KeyboardCapsLock", config.Keyboard.CapsLock);
+        Set("KeyboardFnGlobe", config.Keyboard.FnGlobe);
         Set("KeyboardF13", config.Keyboard.F13);
         Set("KeyboardF14", config.Keyboard.F14);
         Set("KeyboardF15", config.Keyboard.F15);
@@ -874,10 +906,25 @@ public sealed class SettingsForm : Form
         config.Gestures.TapMaxDistance = GetInt("TapMaxDistance");
         config.Gestures.PinchZoomEnabled = GetBool("PinchZoomEnabled");
         config.Gestures.PinchSensitivity = GetInt("PinchSensitivity") / 100.0;
+        config.Gestures.SmartZoomEnabled = GetBool("SmartZoomEnabled");
+        config.Gestures.RotateEnabled = GetBool("RotateEnabled");
+        config.Gestures.TwoFingerSwipePagesEnabled = GetBool("TwoFingerSwipePagesEnabled");
+        config.Gestures.FourFingerPinchEnabled = GetBool("FourFingerPinchEnabled");
+        config.Gestures.FourFingerTapEnabled = GetBool("FourFingerTapEnabled");
         config.Gestures.ThreeFingerSwipesEnabled = GetBool("ThreeFingerSwipesEnabled");
         config.Gestures.SwipeThreshold = GetInt("SwipeThreshold");
         config.Gestures.SwipeVerticalThreshold = GetInt("SwipeVerticalThreshold");
         config.Gestures.SwapLeftRightButtons = GetBool("SwapLeftRightButtons");
+        config.Gestures.Hotkeys.TwoFingerSwipeLeft = Hotkeys.Normalize(GetText("TwoFingerSwipeLeft"));
+        config.Gestures.Hotkeys.TwoFingerSwipeRight = Hotkeys.Normalize(GetText("TwoFingerSwipeRight"));
+        config.Gestures.Hotkeys.SmartZoomIn = Hotkeys.Normalize(GetText("SmartZoomIn"));
+        config.Gestures.Hotkeys.SmartZoomOut = Hotkeys.Normalize(GetText("SmartZoomOut"));
+        config.Gestures.Hotkeys.RotateClockwise = Hotkeys.Normalize(GetText("RotateClockwise"));
+        config.Gestures.Hotkeys.RotateCounterClockwise = Hotkeys.Normalize(GetText("RotateCounterClockwise"));
+        config.Gestures.Hotkeys.FourFingerPinchIn = Hotkeys.Normalize(GetText("FourFingerPinchIn"));
+        config.Gestures.Hotkeys.FourFingerSpread = Hotkeys.Normalize(GetText("FourFingerSpread"));
+        config.Gestures.Hotkeys.FourFingerTap = Hotkeys.Normalize(GetText("FourFingerTap"));
+        config.Gestures.Hotkeys.ThreeFingerTap = Hotkeys.Normalize(GetText("ThreeFingerTapHotkey"));
         config.Gestures.Hotkeys.ThreeFingerSwipeLeft = Hotkeys.Normalize(GetText("ThreeFingerSwipeLeft"));
         config.Gestures.Hotkeys.ThreeFingerSwipeRight = Hotkeys.Normalize(GetText("ThreeFingerSwipeRight"));
         config.Gestures.Hotkeys.ThreeFingerSwipeUp = Hotkeys.Normalize(GetText("ThreeFingerSwipeUp"));
@@ -899,6 +946,7 @@ public sealed class SettingsForm : Form
         config.Keyboard.LeftOption = GetText("KeyboardLeftOption");
         config.Keyboard.RightOption = GetText("KeyboardRightOption");
         config.Keyboard.CapsLock = GetText("KeyboardCapsLock");
+        config.Keyboard.FnGlobe = Hotkeys.Normalize(GetText("KeyboardFnGlobe"));
         config.Keyboard.F13 = Hotkeys.Normalize(GetText("KeyboardF13"));
         config.Keyboard.F14 = Hotkeys.Normalize(GetText("KeyboardF14"));
         config.Keyboard.F15 = Hotkeys.Normalize(GetText("KeyboardF15"));
@@ -919,6 +967,16 @@ public sealed class SettingsForm : Form
     private IEnumerable<string> AllHotkeys()
     {
         yield return config.Gestures.PinchZoomModifier;
+        yield return config.Gestures.Hotkeys.TwoFingerSwipeLeft;
+        yield return config.Gestures.Hotkeys.TwoFingerSwipeRight;
+        yield return config.Gestures.Hotkeys.SmartZoomIn;
+        yield return config.Gestures.Hotkeys.SmartZoomOut;
+        yield return config.Gestures.Hotkeys.RotateClockwise;
+        yield return config.Gestures.Hotkeys.RotateCounterClockwise;
+        yield return config.Gestures.Hotkeys.FourFingerPinchIn;
+        yield return config.Gestures.Hotkeys.FourFingerSpread;
+        yield return config.Gestures.Hotkeys.FourFingerTap;
+        yield return config.Gestures.Hotkeys.ThreeFingerTap;
         yield return config.Gestures.Hotkeys.ThreeFingerSwipeLeft;
         yield return config.Gestures.Hotkeys.ThreeFingerSwipeRight;
         yield return config.Gestures.Hotkeys.ThreeFingerSwipeUp;
@@ -939,6 +997,7 @@ public sealed class SettingsForm : Form
         yield return config.Keyboard.F10;
         yield return config.Keyboard.F11;
         yield return config.Keyboard.F12;
+        yield return config.Keyboard.FnGlobe;
         yield return config.Keyboard.F13;
         yield return config.Keyboard.F14;
         yield return config.Keyboard.F15;

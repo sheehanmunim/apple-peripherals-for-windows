@@ -22,7 +22,8 @@ The settings app lets you configure:
 Keyboard:
 
 - Command, Control, Option, and Caps Lock remaps.
-- F1 through F19 keybinds, including a full F-key mapping dialog.
+- Mac-like F1 through F12 icon-row defaults: brightness, Mission Control, Spotlight/Search, Dictation, Notification Center, media, mute, and volume.
+- Fn/Globe action mapping when Windows exposes the key, plus F13 through F19 keybinds and a full F-key mapping dialog.
 - Whether keyboard remaps are active only while an Apple keyboard is connected.
 
 Trackpad:
@@ -30,11 +31,18 @@ Trackpad:
 - Pointer movement, sensitivity, and X/Y direction.
 - Two-finger vertical and horizontal scrolling.
 - Natural or traditional scroll direction.
+- Two-finger Smart Zoom, rotate, and page back/forward swipes.
 - Tap-to-click and one-/two-/three-finger tap actions.
 - Physical click and multi-finger physical click actions.
 - Pinch-to-zoom modifier and sensitivity.
-- Three- and four-finger swipe keybinds.
+- Three- and four-finger swipe keybinds for Windows desktops, task view, desktop reveal, App Expose-style actions, or any hotkey.
+- Four/five-finger pinch/spread actions for Launchpad/Start and Show Desktop equivalents, plus four-finger tap for Notification Center.
 - Swipe thresholds, raw report logging, and reconnect refresh interval.
+
+Hardware/Windows limits:
+
+- Force Touch pressure and haptic feedback depend on the Apple HID report stream and Windows Bluetooth stack. The bridge preserves pressure values where reports expose them, but Windows does not provide macOS's haptic feedback engine.
+- Display brightness uses Windows monitor brightness APIs. It works on monitors/drivers that expose brightness control and is ignored by hardware that refuses software brightness changes.
 
 ## Build And Test
 
