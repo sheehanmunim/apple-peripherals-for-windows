@@ -1,5 +1,7 @@
 #include "Driver.h"
 
+static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject);
+
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(INIT, DriverEntry)
 #pragma alloc_text(PAGE, DriverUnload)

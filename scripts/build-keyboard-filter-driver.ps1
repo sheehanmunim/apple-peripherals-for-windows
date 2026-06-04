@@ -48,10 +48,26 @@ function Find-MSBuild {
         Select-Object -First 1 -ExpandProperty FullName
 }
 
+function Add-WdkToolsToPath {
+    $infVerifDll = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Tools" -Recurse -Filter InfVerif.dll -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending |
+        Select-Object -First 1
+    if (!$infVerifDll) {
+        return
+    }
+
+    $toolsRoot = Split-Path -Parent (Split-Path -Parent $infVerifDll.FullName)
+    if ($env:PATH -notlike "*$toolsRoot*") {
+        $env:PATH = "$toolsRoot;$env:PATH"
+    }
+}
+
 $msbuild = Find-MSBuild
 if (!$msbuild) {
     throw "MSBuild was not found. Install Visual Studio Build Tools with the Windows Driver Kit before building AppleKeyboardFilter.sys."
 }
+
+Add-WdkToolsToPath
 
 Write-Host "Building AppleKeyboardFilter driver ($Configuration|$Platform)..."
 & $msbuild $ProjectPath "/p:Configuration=$Configuration" "/p:Platform=$Platform" /m
