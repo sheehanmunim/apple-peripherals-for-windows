@@ -89,6 +89,14 @@ dotnet run --project .\src\MagicTrackpad.App\MagicTrackpad.App.csproj -c Release
 Magic Keyboard Globe/Fn driver health check:
 
 ```powershell
+$statusPath = "$env:TEMP\apple-keyboard-filter-status.txt"
+Start-Process -FilePath "$env:LOCALAPPDATA\ApplePeripheralsForWindows\app\MagicTrackpad.exe" -ArgumentList @("--keyboard-filter-status", "--output", $statusPath) -Wait
+Get-Content $statusPath
+```
+
+From the repo source tree:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1
 ```
 
@@ -207,6 +215,15 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-drive
 ```
 
 Check whether Windows actually bound the filter to the keyboard:
+
+```powershell
+$statusPath = "$env:TEMP\apple-keyboard-filter-status.txt"
+$process = Start-Process -FilePath "$env:LOCALAPPDATA\ApplePeripheralsForWindows\app\MagicTrackpad.exe" -ArgumentList @("--keyboard-filter-status", "--require-ready", "--output", $statusPath) -Wait -PassThru
+Get-Content $statusPath
+$process.ExitCode
+```
+
+Or from the repo source tree:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1 -RequireReady

@@ -3,6 +3,8 @@ using MagicTrackpad.Hid;
 using MagicTrackpad.Runtime;
 using MagicTrackpad.SelfTest;
 using MagicTrackpad.Ui;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace MagicTrackpad;
 
@@ -36,6 +38,11 @@ internal static class Program
                 return HidDiagnostics.Run(
                     parsed.DiagnosticsPath ?? Path.Combine(AppContext.BaseDirectory, "diagnostics", "hid-diagnostics.json"),
                     parsed.Seconds ?? 10);
+            }
+
+            if (parsed.Mode == AppMode.KeyboardFilterStatus)
+            {
+                return KeyboardFilterStatusCommand.Run(parsed);
             }
 
             if (parsed.Mode == AppMode.WriteConfig)
@@ -76,6 +83,7 @@ internal enum AppMode
     Bridge,
     Enable,
     DiagnoseHid,
+    KeyboardFilterStatus,
     SelfTest,
     WriteConfig,
     MigrateConfig,
@@ -86,7 +94,11 @@ internal sealed class CommandLine
     public AppMode Mode { get; init; } = AppMode.Settings;
     public string? ConfigPath { get; init; }
     public string? DiagnosticsPath { get; init; }
+    public string? OutputPath { get; init; }
     public bool DryRun { get; init; }
+    public bool Json { get; init; }
+    public bool RequireReady { get; init; }
+    public bool RequireMicrosoftSigner { get; init; }
     public double? Seconds { get; init; }
 
     public static CommandLine Parse(string[] args)
@@ -94,7 +106,11 @@ internal sealed class CommandLine
         var mode = AppMode.Settings;
         string? configPath = null;
         string? diagnosticsPath = null;
+        string? outputPath = null;
         var dryRun = false;
+        var json = false;
+        var requireReady = false;
+        var requireMicrosoftSigner = false;
         double? seconds = null;
 
         for (var index = 0; index < args.Length; index++)
@@ -117,8 +133,23 @@ internal sealed class CommandLine
                 case "diagnose-hid":
                     mode = AppMode.DiagnoseHid;
                     break;
+                case "--keyboard-filter-status":
+                case "--check-keyboard-filter":
+                case "keyboard-filter-status":
+                case "check-keyboard-filter":
+                    mode = AppMode.KeyboardFilterStatus;
+                    break;
                 case "--self-test":
                     mode = AppMode.SelfTest;
+                    break;
+                case "--json":
+                    json = true;
+                    break;
+                case "--require-ready":
+                    requireReady = true;
+                    break;
+                case "--require-microsoft-signer":
+                    requireMicrosoftSigner = true;
                     break;
                 case "--write-config":
                 case "write-config":
@@ -137,6 +168,10 @@ internal sealed class CommandLine
                 case "--diagnostics-path":
                     diagnosticsPath = index + 1 < args.Length ? args[++index] : diagnosticsPath;
                     break;
+                case "--output":
+                case "--output-path":
+                    outputPath = index + 1 < args.Length ? args[++index] : outputPath;
+                    break;
                 case "--seconds":
                     if (index + 1 < args.Length && double.TryParse(args[++index], out var value))
                     {
@@ -151,8 +186,79 @@ internal sealed class CommandLine
             Mode = mode,
             ConfigPath = configPath,
             DiagnosticsPath = diagnosticsPath,
+            OutputPath = outputPath,
             DryRun = dryRun,
+            Json = json,
+            RequireReady = requireReady,
+            RequireMicrosoftSigner = requireMicrosoftSigner,
             Seconds = seconds,
         };
     }
+}
+
+internal static class KeyboardFilterStatusCommand
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+    };
+
+    public static int Run(CommandLine parsed)
+    {
+        var status = KeyboardFilterDriverStatus.Query(includeDriverStorePackages: true);
+        var ready = parsed.RequireMicrosoftSigner ? status.ReleaseReady : status.Ready;
+        var output = parsed.Json ? JsonSerializer.Serialize(status, JsonOptions) : PlainText(status, parsed.RequireMicrosoftSigner);
+        CommandOutput.Write(output, parsed.OutputPath);
+        return parsed.RequireReady && !ready ? 2 : 0;
+    }
+
+    private static string PlainText(KeyboardFilterDriverState status, bool requireMicrosoftSigner)
+    {
+        var lines = new List<string>
+        {
+            $"Ready: {status.Ready}",
+            $"Release ready: {status.ReleaseReady}",
+            $"Microsoft signed: {status.MicrosoftSigned}",
+            $"Diagnosis: {status.Diagnosis}",
+            $"Target driver: {status.TargetDriverInfPath ?? "not bound"}",
+            $"Target service: {status.TargetService ?? "unknown"}",
+            $"Driver packages: {status.DriverStorePackages.Count}",
+        };
+
+        if (requireMicrosoftSigner && status.Ready && !status.MicrosoftSigned)
+        {
+            lines.Add("Required signer: Microsoft driver-signing certificate was not found.");
+        }
+
+        foreach (var package in status.DriverStorePackages)
+        {
+            lines.Add($"Package: {package.PublishedName ?? "unknown"} {package.OriginalName ?? "unknown"} signer={package.SignerName ?? "unknown"}");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+}
+
+internal static class CommandOutput
+{
+    private const int AttachParentProcess = -1;
+
+    public static void Write(string text, string? outputPath)
+    {
+        if (!string.IsNullOrWhiteSpace(outputPath))
+        {
+            var path = Path.IsPathRooted(outputPath)
+                ? outputPath
+                : Path.Combine(Environment.CurrentDirectory, outputPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path) ?? Environment.CurrentDirectory);
+            File.WriteAllText(path, text + Environment.NewLine);
+            return;
+        }
+
+        AttachConsole(AttachParentProcess);
+        Console.WriteLine(text);
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool AttachConsole(int dwProcessId);
 }

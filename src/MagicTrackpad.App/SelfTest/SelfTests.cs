@@ -16,6 +16,7 @@ internal static class SelfTests
             TestHotkeys();
             TestKeyboardDetection();
             TestKeyboardFilterStatus();
+            TestKeyboardFilterDriverStoreParsing();
             TestReports();
             TestBatteryReports();
             TestGestures();
@@ -86,8 +87,10 @@ internal static class SelfTests
         var active = KeyboardFilterDriverStatus.Evaluate(
             true,
             [new KeyboardFilterTargetState(@"BTHENUM\Apple", true, "AppleKeyboardFilter.inf", "HidBth", ["AppleKeyboardFilter"])],
+            true,
             true);
         Require(active.Ready);
+        Require(active.ReleaseReady);
         Require(active.Diagnosis == "Globe/Fn driver is active.");
 
         var missing = KeyboardFilterDriverStatus.Evaluate(
@@ -103,6 +106,28 @@ internal static class SelfTests
             true);
         Require(!waiting.Ready);
         Require(waiting.Diagnosis == "Globe/Fn driver is waiting for reconnect or restart.");
+    }
+
+    private static void TestKeyboardFilterDriverStoreParsing()
+    {
+        var output = """
+Published Name:     oem42.inf
+Original Name:      AppleKeyboardFilter.inf
+Provider Name:      Apple Peripherals for Windows
+Driver Version:     06/04/2026 0.4.0.0
+Signer Name:        Microsoft Windows Hardware Compatibility Publisher
+Catalog File:       applekeyboardfilter.cat
+
+Published Name:     oem99.inf
+Original Name:      keyboard.inf
+Provider Name:      Microsoft
+Signer Name:        Microsoft Windows
+Catalog File:       keyboard.cat
+""";
+        var packages = KeyboardFilterDriverStatus.ParseDriverStorePackages(output);
+        Require(packages.Count == 1);
+        Require(packages[0].PublishedName == "oem42.inf");
+        Require(packages[0].SignerName == "Microsoft Windows Hardware Compatibility Publisher");
     }
 
     private static void TestGestures()

@@ -32,6 +32,15 @@ Microsoft's attestation documentation requires a Hardware Developer Program acco
 After installing a full release on a test machine with a Magic Keyboard connected, verify the live binding:
 
 ```powershell
+$statusPath = "$env:TEMP\apple-keyboard-filter-status.txt"
+$process = Start-Process -FilePath "$env:LOCALAPPDATA\ApplePeripheralsForWindows\app\MagicTrackpad.exe" -ArgumentList @("--keyboard-filter-status", "--require-ready", "--require-microsoft-signer", "--output", $statusPath) -Wait -PassThru
+Get-Content $statusPath
+$process.ExitCode
+```
+
+From the repo source tree:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1 -RequireReady -RequireMicrosoftSigner
 ```
 

@@ -55,10 +55,27 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-keyboard-driver-packag
 After installing or reconnecting a Magic Keyboard, check whether Windows actually has the filter in the driver store and bound to the keyboard target:
 
 ```powershell
+$statusPath = "$env:TEMP\apple-keyboard-filter-status.txt"
+Start-Process -FilePath "$env:LOCALAPPDATA\ApplePeripheralsForWindows\app\MagicTrackpad.exe" -ArgumentList @("--keyboard-filter-status", "--output", $statusPath) -Wait
+Get-Content $statusPath
+```
+
+From the repo source tree:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1
 ```
 
 For a gating check:
+
+```powershell
+$statusPath = "$env:TEMP\apple-keyboard-filter-status.txt"
+$process = Start-Process -FilePath "$env:LOCALAPPDATA\ApplePeripheralsForWindows\app\MagicTrackpad.exe" -ArgumentList @("--keyboard-filter-status", "--require-ready", "--output", $statusPath) -Wait -PassThru
+Get-Content $statusPath
+$process.ExitCode
+```
+
+Or from the repo source tree:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1 -RequireReady
@@ -80,7 +97,7 @@ If the machine does not have Visual Studio Build Tools and WDK installed, use an
 powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -DriverDir .\artifacts\keyboard-filter\AMD64 -SkipBuild -EnableTestSigning -Elevate
 ```
 
-The helper creates or reuses a local code-signing certificate, trusts it on the machine, signs a temporary copy of the catalog, enables Windows test-signing mode, and installs the filter with `-AllowTestSigned`. Reboot after enabling test-signing and rerun `scripts\check-keyboard-filter-driver.ps1`. This path is deliberately not used by the public setup executable.
+The helper creates or reuses a local code-signing certificate, trusts it on the machine, signs a temporary copy of the catalog, enables Windows test-signing mode, and installs the filter with `-AllowTestSigned`. Reboot after enabling test-signing and rerun the installed app's `--keyboard-filter-status` command or `scripts\check-keyboard-filter-driver.ps1`. This path is deliberately not used by the public setup executable.
 
 ## GitHub Artifact Build
 

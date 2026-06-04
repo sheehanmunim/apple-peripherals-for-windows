@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using System.Diagnostics;
 
 namespace MagicTrackpad.Hid;
 
@@ -7,12 +8,16 @@ public sealed record KeyboardFilterDriverState(
     bool FilterTargetPresent,
     bool DriverStoreInstalled,
     bool FilterBound,
+    bool MicrosoftSigned,
     string Diagnosis,
     string? TargetDriverInfPath,
     string? TargetService,
-    IReadOnlyList<KeyboardFilterTargetState> Targets)
+    IReadOnlyList<KeyboardFilterTargetState> Targets,
+    IReadOnlyList<KeyboardFilterDriverPackageState> DriverStorePackages)
 {
     public bool Ready => AppleKeyboardPresent && FilterTargetPresent && DriverStoreInstalled && FilterBound;
+
+    public bool ReleaseReady => Ready && MicrosoftSigned;
 }
 
 public sealed record KeyboardFilterTargetState(
@@ -22,13 +27,22 @@ public sealed record KeyboardFilterTargetState(
     string? Service,
     IReadOnlyList<string> LowerFilters);
 
+public sealed record KeyboardFilterDriverPackageState(
+    string? PublishedName,
+    string? OriginalName,
+    string? ProviderName,
+    string? DriverVersion,
+    string? SignerName,
+    string? CatalogFile);
+
 public static class KeyboardFilterDriverStatus
 {
     private const string FilterServiceName = "AppleKeyboardFilter";
+    private const string BluetoothHidServiceId = "{00001124-0000-1000-8000-00805f9b34fb}";
     private static readonly string[] BluetoothPids = ["0320", "0267", "026C"];
     private static readonly string[] UsbPids = ["0321", "0267", "026C"];
 
-    public static KeyboardFilterDriverState Query()
+    public static KeyboardFilterDriverState Query(bool includeDriverStorePackages = false)
     {
         var appleKeyboardPresent = false;
         try
@@ -41,14 +55,18 @@ public static class KeyboardFilterDriverStatus
         }
 
         var targets = EnumerateTargets().ToList();
-        var driverStoreInstalled = DriverStoreInstalled();
-        return Evaluate(appleKeyboardPresent, targets, driverStoreInstalled);
+        var packages = includeDriverStorePackages ? DriverStorePackages() : [];
+        var driverStoreInstalled = packages.Count > 0 || DriverStoreInstalled();
+        var microsoftSigned = packages.Any(item => item.SignerName?.Contains("Microsoft", StringComparison.OrdinalIgnoreCase) == true);
+        return Evaluate(appleKeyboardPresent, targets, driverStoreInstalled, microsoftSigned, packages);
     }
 
     internal static KeyboardFilterDriverState Evaluate(
         bool appleKeyboardPresent,
         IReadOnlyList<KeyboardFilterTargetState> targets,
-        bool driverStoreInstalled)
+        bool driverStoreInstalled,
+        bool microsoftSigned = false,
+        IReadOnlyList<KeyboardFilterDriverPackageState>? driverStorePackages = null)
     {
         var target = targets.FirstOrDefault(item => item.FilterBound) ?? targets.FirstOrDefault();
         var filterTargetPresent = targets.Count > 0;
@@ -60,10 +78,12 @@ public static class KeyboardFilterDriverStatus
             filterTargetPresent,
             driverStoreInstalled,
             filterBound,
+            microsoftSigned,
             diagnosis,
             target?.DriverInfPath,
             target?.Service,
-            targets);
+            targets,
+            driverStorePackages ?? []);
     }
 
     private static string DiagnosisFor(
@@ -118,7 +138,8 @@ public static class KeyboardFilterDriverStatus
 
         foreach (var parentName in root.GetSubKeyNames())
         {
-            if (!BluetoothPids.Any(pid => parentName.Contains($"VID&0001004C_PID&{pid}", StringComparison.OrdinalIgnoreCase)))
+            if (!parentName.Contains(BluetoothHidServiceId, StringComparison.OrdinalIgnoreCase) ||
+                !BluetoothPids.Any(pid => parentName.Contains($"VID&0001004C_PID&{pid}", StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }
@@ -213,6 +234,110 @@ public static class KeyboardFilterDriverStatus
             return false;
         }
     }
+
+    private static IReadOnlyList<KeyboardFilterDriverPackageState> DriverStorePackages()
+    {
+        var pnputil = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            "System32",
+            "pnputil.exe");
+        if (!File.Exists(pnputil))
+        {
+            return [];
+        }
+
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo
+            {
+                FileName = pnputil,
+                ArgumentList = { "/enum-drivers" },
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            });
+            if (process == null)
+            {
+                return [];
+            }
+
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit(10000);
+            if (!process.HasExited)
+            {
+                try
+                {
+                    process.Kill();
+                }
+                catch
+                {
+                    // Best effort only; a status query should not crash the app.
+                }
+                return [];
+            }
+
+            return ParseDriverStorePackages(output);
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    internal static IReadOnlyList<KeyboardFilterDriverPackageState> ParseDriverStorePackages(string output)
+    {
+        var packages = new List<KeyboardFilterDriverPackageState>();
+        var current = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddCurrent()
+        {
+            if (current.Count == 0)
+            {
+                return;
+            }
+
+            if (IsKeyboardFilterPackage(current))
+            {
+                packages.Add(new KeyboardFilterDriverPackageState(
+                    current.GetValueOrDefault("Published Name"),
+                    current.GetValueOrDefault("Original Name"),
+                    current.GetValueOrDefault("Provider Name"),
+                    current.GetValueOrDefault("Driver Version"),
+                    current.GetValueOrDefault("Signer Name"),
+                    current.GetValueOrDefault("Catalog File")));
+            }
+
+            current.Clear();
+        }
+
+        foreach (var rawLine in output.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            var line = rawLine.TrimEnd();
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                AddCurrent();
+                continue;
+            }
+
+            var separator = line.IndexOf(':');
+            if (separator <= 0)
+            {
+                continue;
+            }
+
+            current[line[..separator].Trim()] = line[(separator + 1)..].Trim();
+        }
+
+        AddCurrent();
+        return packages;
+    }
+
+    private static bool IsKeyboardFilterPackage(IReadOnlyDictionary<string, string> package) =>
+        package.TryGetValue("Original Name", out var originalName) &&
+            string.Equals(originalName, "AppleKeyboardFilter.inf", StringComparison.OrdinalIgnoreCase) ||
+        package.TryGetValue("Provider Name", out var providerName) &&
+            string.Equals(providerName, "Apple Peripherals for Windows", StringComparison.OrdinalIgnoreCase);
 
     private static IReadOnlyList<string> RegistryStringArray(object? value)
     {
