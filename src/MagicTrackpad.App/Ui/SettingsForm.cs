@@ -6,6 +6,7 @@ using System.Text.Json;
 using MagicTrackpad.Configuration;
 using MagicTrackpad.Hid;
 using MagicTrackpad.Input;
+using MagicTrackpad.Keyboard;
 
 namespace MagicTrackpad.Ui;
 
@@ -37,6 +38,8 @@ public sealed class SettingsForm : Form
     private AppConfig config;
     private bool loadingValues;
     private bool autoSaveErrorShown;
+    private Label? globeKeyTestLabel;
+    private Button? globeKeyTestButton;
 
     public SettingsForm(string configPath)
     {
@@ -982,6 +985,23 @@ public sealed class SettingsForm : Form
         });
         parent.Controls.Add(driverRow);
 
+        var testRow = Row(42, contentWidth - 8);
+        testRow.Controls.Add(ThemedLabel("Live Globe/Fn:", 205));
+        globeKeyTestLabel = new Label
+        {
+            Text = "Not tested",
+            Width = Math.Max(120, contentWidth - 365),
+            Height = 32,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = TextMuted,
+            BackColor = Color.Transparent,
+        };
+        globeKeyTestButton = ThemedButton("Test key", 130, 32);
+        globeKeyTestButton.Click += (_, _) => RunGlobeKeyProbe();
+        testRow.Controls.Add(globeKeyTestLabel);
+        testRow.Controls.Add(globeKeyTestButton);
+        parent.Controls.Add(testRow);
+
         if (!status.Ready)
         {
             var installState = InstalledBundleState();
@@ -1020,6 +1040,48 @@ public sealed class SettingsForm : Form
             }
 
             parent.Controls.Add(actionRow);
+        }
+    }
+
+    private async void RunGlobeKeyProbe()
+    {
+        if (globeKeyTestLabel == null || globeKeyTestButton == null)
+        {
+            return;
+        }
+
+        globeKeyTestButton.Enabled = false;
+        globeKeyTestLabel.Text = "Press Globe/Fn now...";
+        globeKeyTestLabel.ForeColor = TextMain;
+
+        try
+        {
+            var result = await Task.Run(() => GlobeKeyProbe.Run(TimeSpan.FromSeconds(8)));
+            if (result.Observed)
+            {
+                globeKeyTestLabel.Text = "Detected";
+                globeKeyTestLabel.ForeColor = Accent;
+                return;
+            }
+
+            globeKeyTestLabel.Text = "Not detected";
+            globeKeyTestLabel.ForeColor = Color.FromArgb(174, 89, 72);
+            MessageBox.Show(
+                this,
+                result.Diagnosis,
+                "Globe/Fn Test",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            globeKeyTestLabel.Text = "Test failed";
+            globeKeyTestLabel.ForeColor = Color.FromArgb(174, 89, 72);
+            MessageBox.Show(this, ex.Message, "Globe/Fn Test", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            globeKeyTestButton.Enabled = true;
         }
     }
 

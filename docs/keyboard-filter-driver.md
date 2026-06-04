@@ -83,6 +83,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.
 
 Use `-RequireMicrosoftSigner` when verifying a public-release machine. A healthy public install should report `Ready: True`; if it reports that the filter is not in the driver store, Globe/Fn cannot be remapped by the app because Windows is still hiding that bit in the stock keyboard stack.
 
+After the driver status is ready, prove the physical key is reaching the bridge:
+
+```powershell
+$probePath = "$env:TEMP\apple-globe-probe.json"
+$process = Start-Process -FilePath "$env:LOCALAPPDATA\ApplePeripheralsForWindows\app\MagicTrackpad.exe" -ArgumentList @("--test-globe", "--seconds", "8", "--json", "--output", $probePath) -Wait -PassThru
+Get-Content $probePath
+$process.ExitCode
+```
+
+Press the physical Globe/Fn key while the probe is running. A working install reports `"Observed": true`; a stock Windows keyboard stack usually reports that the Apple Keyboard Filter driver must be installed and bound.
+
 ## Local Development Test Signing
 
 For local driver development only, run from elevated PowerShell:

@@ -46,6 +46,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.
 
 The check must report `Ready: True` before the release can claim Globe/Fn remapping works.
 
+Then run the physical key probe and press Globe/Fn during the test window:
+
+```powershell
+$probePath = "$env:TEMP\apple-globe-probe.json"
+$process = Start-Process -FilePath "$env:LOCALAPPDATA\ApplePeripheralsForWindows\app\MagicTrackpad.exe" -ArgumentList @("--test-globe", "--seconds", "8", "--json", "--output", $probePath) -Wait -PassThru
+Get-Content $probePath
+$process.ExitCode
+```
+
+The probe must report `"Observed": true` before release notes can say the physical Globe/Fn key works.
+
 The setup executable also runs the installed app's keyboard-filter status check after installing a bundled keyboard driver. If Windows has not bound the filter yet, setup reports that the keyboard must be reconnected or Windows restarted before Globe/Fn remapping can work.
 
 ## App-Only Release

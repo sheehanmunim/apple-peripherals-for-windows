@@ -1,5 +1,6 @@
 using MagicTrackpad.Configuration;
 using MagicTrackpad.Hid;
+using MagicTrackpad.Keyboard;
 using MagicTrackpad.Runtime;
 using MagicTrackpad.SelfTest;
 using MagicTrackpad.Ui;
@@ -45,6 +46,11 @@ internal static class Program
                 return KeyboardFilterStatusCommand.Run(parsed);
             }
 
+            if (parsed.Mode == AppMode.TestGlobe)
+            {
+                return GlobeKeyTestCommand.Run(parsed);
+            }
+
             if (parsed.Mode == AppMode.WriteConfig)
             {
                 ConfigStore.Save(configPath, new AppConfig());
@@ -84,6 +90,7 @@ internal enum AppMode
     Enable,
     DiagnoseHid,
     KeyboardFilterStatus,
+    TestGlobe,
     SelfTest,
     WriteConfig,
     MigrateConfig,
@@ -138,6 +145,12 @@ internal sealed class CommandLine
                 case "keyboard-filter-status":
                 case "check-keyboard-filter":
                     mode = AppMode.KeyboardFilterStatus;
+                    break;
+                case "--test-globe":
+                case "--globe-test":
+                case "test-globe":
+                case "globe-test":
+                    mode = AppMode.TestGlobe;
                     break;
                 case "--self-test":
                     mode = AppMode.SelfTest;
@@ -233,6 +246,46 @@ internal static class KeyboardFilterStatusCommand
         foreach (var package in status.DriverStorePackages)
         {
             lines.Add($"Package: {package.PublishedName ?? "unknown"} {package.OriginalName ?? "unknown"} signer={package.SignerName ?? "unknown"}");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+}
+
+internal static class GlobeKeyTestCommand
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+    };
+
+    public static int Run(CommandLine parsed)
+    {
+        var timeout = TimeSpan.FromSeconds(parsed.Seconds ?? 8);
+        var result = GlobeKeyProbe.Run(timeout);
+        var output = parsed.Json ? JsonSerializer.Serialize(result, JsonOptions) : PlainText(result);
+        CommandOutput.Write(output, parsed.OutputPath);
+        return result.Observed ? 0 : 2;
+    }
+
+    private static string PlainText(GlobeKeyProbeResult result)
+    {
+        var lines = new List<string>
+        {
+            $"Observed: {result.Observed}",
+            $"Apple keyboard present: {result.AppleKeyboardPresent}",
+            $"Filter ready: {result.FilterReady}",
+            $"Diagnosis: {result.Diagnosis}",
+        };
+
+        if (result.Sources.Count > 0)
+        {
+            lines.Add($"Sources: {string.Join(", ", result.Sources)}");
+        }
+
+        foreach (var status in result.ReaderStatuses)
+        {
+            lines.Add($"Reader: {status.ProductName} usage={status.UsagePage:X}/{status.Usage:X} state={status.State} length={status.ReportLength?.ToString() ?? "n/a"} error={status.Error?.ToString() ?? "n/a"}");
         }
 
         return string.Join(Environment.NewLine, lines);

@@ -229,6 +229,17 @@ Or from the repo source tree:
 powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1 -RequireReady
 ```
 
+After the health check is ready, run the physical Globe/Fn probe and press the Globe/Fn key while it is waiting:
+
+```powershell
+$probePath = "$env:TEMP\apple-globe-probe.json"
+$process = Start-Process -FilePath "$env:LOCALAPPDATA\ApplePeripheralsForWindows\app\MagicTrackpad.exe" -ArgumentList @("--test-globe", "--seconds", "8", "--json", "--output", $probePath) -Wait -PassThru
+Get-Content $probePath
+$process.ExitCode
+```
+
+The settings app also has a `Live Globe/Fn` test row on the Magic Keyboard page.
+
 For local driver development only, use the test-signing helper from elevated PowerShell:
 
 ```powershell
