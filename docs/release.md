@@ -57,7 +57,7 @@ $process.ExitCode
 
 The probe must report `"Observed": true` before release notes can say the physical Globe/Fn key works.
 
-The setup executable also runs the installed app's keyboard-filter status check after installing a bundled keyboard driver. If Windows has not bound the filter yet, setup reports that the keyboard must be reconnected or Windows restarted before Globe/Fn remapping can work.
+The setup executable also tries to restart detected Magic Keyboard filter targets and then runs the installed app's keyboard-filter status check after installing a bundled keyboard driver. If Windows has not bound the filter yet, setup reports that the keyboard must be reconnected or Windows restarted before Globe/Fn remapping can work.
 
 ## App-Only Release
 

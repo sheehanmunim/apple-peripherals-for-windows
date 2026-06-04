@@ -300,6 +300,7 @@ internal static class Installer
             {
                 progress.Report("Installing Magic Keyboard Globe/Fn driver...");
                 var keyboardDriverRebootRequired = InstallKeyboardFilterDriver(progress);
+                keyboardDriverRebootRequired |= TryRestartKeyboardFilterTargets(appExe, progress);
                 rebootRequired |= keyboardDriverRebootRequired;
                 if (!VerifyKeyboardFilterReady(appExe, progress, out var keyboardStatus))
                 {
@@ -592,6 +593,71 @@ internal static class Installer
         }
     }
 
+    private static bool TryRestartKeyboardFilterTargets(string appExe, IProgress<string> progress)
+    {
+        var status = QueryKeyboardFilterStatus(appExe, progress);
+        if (status == null || status.ReleaseReady)
+        {
+            return false;
+        }
+
+        var targets = (status.Targets ?? [])
+            .Where(target => !string.IsNullOrWhiteSpace(target.InstanceId))
+            .ToList();
+        if (targets.Count == 0)
+        {
+            progress.Report("No Magic Keyboard driver target was found to restart.");
+            return false;
+        }
+
+        var rebootRequired = false;
+        var pnputil = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "pnputil.exe");
+        foreach (var target in targets)
+        {
+            progress.Report("Restarting Magic Keyboard driver target...");
+            var process = RunProcess(pnputil, $"/restart-device \"{target.InstanceId}\"", wait: true);
+            if (process.ExitCode == 3010)
+            {
+                rebootRequired = true;
+            }
+            else if (process.ExitCode != 0)
+            {
+                progress.Report($"Could not restart Magic Keyboard target. pnputil exited with {process.ExitCode}.");
+            }
+        }
+
+        return rebootRequired;
+    }
+
+    private static KeyboardFilterStatusDocument? QueryKeyboardFilterStatus(string appExe, IProgress<string> progress)
+    {
+        var statusPath = Path.Combine(Path.GetTempPath(), $"AppleKeyboardFilterStatus-{Guid.NewGuid():N}.json");
+        try
+        {
+            var process = RunProcess(
+                appExe,
+                $"--keyboard-filter-status --json --output \"{statusPath}\"",
+                wait: true);
+
+            if (process.ExitCode != 0 || !File.Exists(statusPath))
+            {
+                progress.Report($"Could not query Magic Keyboard driver status. Status command exited with {process.ExitCode}.");
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<KeyboardFilterStatusDocument>(File.ReadAllText(statusPath));
+        }
+        catch (Exception ex)
+        {
+            progress.Report($"Could not query Magic Keyboard driver status. {ex.Message}");
+            return null;
+        }
+        finally
+        {
+            DeleteFileIfExists(statusPath);
+        }
+    }
+
     private static void StartBridge(string appExe)
     {
         Process.Start(new ProcessStartInfo
@@ -741,6 +807,16 @@ internal static class Installer
 }
 
 internal sealed record InstallResult(string Message, bool RebootRequired);
+
+internal sealed record KeyboardFilterStatusDocument(
+    bool Ready,
+    bool ReleaseReady,
+    bool DriverStoreInstalled,
+    KeyboardFilterTargetDocument[] Targets);
+
+internal sealed record KeyboardFilterTargetDocument(
+    string InstanceId,
+    bool FilterBound);
 
 internal sealed record InstallState(
     string Version,

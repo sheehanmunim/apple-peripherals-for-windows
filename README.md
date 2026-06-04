@@ -266,6 +266,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-drive
 
 That helper creates a local test code-signing certificate, trusts it for this machine, signs a temporary copy of the local driver catalog, enables Windows test-signing mode, and installs the filter. It is not a public-user install path; reboot after enabling test-signing, then rerun the health check.
 
+The keyboard-filter installer tries to restart detected Magic Keyboard driver targets after adding the package. If Windows still reports the filter is not active, reboot or reconnect the keyboard, then rerun the health check and live Globe/Fn test.
+
 Public installers must bundle a trusted signed keyboard driver package. See [docs/keyboard-filter-driver.md](docs/keyboard-filter-driver.md) and [docs/release.md](docs/release.md).
 
 Manual script uninstall:

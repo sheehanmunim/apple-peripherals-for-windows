@@ -122,6 +122,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-drive
 
 The helper creates or reuses a local code-signing certificate, trusts it on the machine, signs a temporary copy of the catalog, enables Windows test-signing mode, and installs the filter with `-AllowTestSigned`. Reboot after enabling test-signing and rerun the installed app's `--keyboard-filter-status` command or `scripts\check-keyboard-filter-driver.ps1`. This path is deliberately not used by the public setup executable.
 
+The driver installer also tries to restart detected Magic Keyboard filter targets once after adding the package. If Windows still reports the filter is not active, reboot or reconnect the keyboard before rerunning the driver status and live Globe/Fn probe.
+
 ## GitHub Artifact Build
 
 The `keyboard-driver` GitHub Actions workflow builds unsigned AMD64 and ARM64 driver packages on a Windows runner with WDK 26100:
