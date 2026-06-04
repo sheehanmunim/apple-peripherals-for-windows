@@ -179,7 +179,10 @@ internal static class Installer
 {
     public const string ProductName = "Apple Peripherals for Windows";
     private const string Publisher = "Apple Peripherals for Windows";
-    private const string Version = "0.3.3";
+    private static readonly string Version =
+        typeof(Installer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        ?? typeof(Installer).Assembly.GetName().Version?.ToString()
+        ?? "0.0.0";
     private const string TaskName = "ApplePeripheralsBridge";
     private const string DriverPackageUrl = "https://github.com/vitoplantamura/MagicTrackpad2ForWindows/releases/download/v2.0/MT2FW11-20260223-MSSigned.zip";
     private const string DriverResourceName = "MagicTrackpad2ForWindows-MSSigned.zip";

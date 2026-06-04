@@ -138,6 +138,12 @@ Build the ARM64 installer with:
 .\scripts\build-installer.ps1 -Runtime win-arm64
 ```
 
+Build a full installer with a signed Magic Keyboard Globe/Fn filter bundled:
+
+```powershell
+.\scripts\build-installer.ps1 -Runtime win-x64 -KeyboardDriverZip .\artifacts\keyboard-filter\AppleKeyboardFilterDriver.zip -RequireKeyboardDriver
+```
+
 ## Manual Developer Install
 
 Use PowerShell from the repo root when testing from source:
@@ -194,7 +200,7 @@ Install a signed package from an elevated PowerShell window:
 powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver.ps1
 ```
 
-Public installers must bundle a trusted signed keyboard driver package. See [docs/keyboard-filter-driver.md](docs/keyboard-filter-driver.md).
+Public installers must bundle a trusted signed keyboard driver package. See [docs/keyboard-filter-driver.md](docs/keyboard-filter-driver.md) and [docs/release.md](docs/release.md).
 
 Manual script uninstall:
 

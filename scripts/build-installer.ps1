@@ -2,8 +2,10 @@ param(
     [ValidateSet("win-x64", "win-arm64")]
     [string]$Runtime = "win-x64",
     [string]$Configuration = "Release",
+    [string]$Version = "",
     [string]$OutputDir = "",
-    [string]$KeyboardDriverZip = ""
+    [string]$KeyboardDriverZip = "",
+    [switch]$RequireKeyboardDriver
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,6 +43,16 @@ else {
     Join-Path $RepoRoot $KeyboardDriverZip
 }
 
+$versionArgs = @()
+if (![string]::IsNullOrWhiteSpace($Version)) {
+    $informationalVersion = $Version -replace '^[vV]', ''
+    $assemblyVersion = ($informationalVersion -split "-", 2)[0]
+    $versionArgs += "-p:Version=$informationalVersion"
+    $versionArgs += "-p:AssemblyVersion=$assemblyVersion"
+    $versionArgs += "-p:FileVersion=$assemblyVersion"
+    $versionArgs += "-p:InformationalVersion=$informationalVersion"
+}
+
 if (Test-Path $ArtifactsRoot) {
     Remove-Item -LiteralPath $ArtifactsRoot -Recurse -Force
 }
@@ -57,6 +69,7 @@ dotnet publish $AppProject `
     -r $Runtime `
     --self-contained true `
     -p:PublishSingleFile=false `
+    $versionArgs `
     -o $AppPayloadDir
 
 if (!(Test-Path (Join-Path $AppPayloadDir "MagicTrackpad.exe"))) {
@@ -65,6 +78,16 @@ if (!(Test-Path (Join-Path $AppPayloadDir "MagicTrackpad.exe"))) {
 
 if (![string]::IsNullOrWhiteSpace($KeyboardDriverZipPath) -and !(Test-Path $KeyboardDriverZipPath)) {
     throw "KeyboardDriverZip was provided but was not found: $KeyboardDriverZipPath"
+}
+if ($RequireKeyboardDriver -and [string]::IsNullOrWhiteSpace($KeyboardDriverZipPath)) {
+    throw "A trusted signed KeyboardDriverZip is required for this installer build."
+}
+if (![string]::IsNullOrWhiteSpace($KeyboardDriverZipPath)) {
+    Write-Host "Verifying signed Magic Keyboard driver package..."
+    & (Join-Path $PSScriptRoot "verify-keyboard-driver-package.ps1") -ZipPath $KeyboardDriverZipPath -Runtime $Runtime
+    if ($LASTEXITCODE -ne 0) {
+        throw "Keyboard driver package verification failed with exit code $LASTEXITCODE."
+    }
 }
 
 Write-Host "Compressing app payload..."
@@ -81,6 +104,7 @@ dotnet publish $SetupProject `
     -p:PayloadZip="$PayloadZip" `
     -p:DriverZip="$DriverZip" `
     -p:KeyboardDriverZip="$KeyboardDriverZipPath" `
+    $versionArgs `
     -o $SetupOutDir
 
 $BuiltInstaller = Join-Path $SetupOutDir "ApplePeripheralsSetup.exe"

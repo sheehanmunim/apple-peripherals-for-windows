@@ -44,6 +44,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-keyboard-filter-driver.
 
 The installer and `scripts\install-keyboard-filter-driver.ps1` verify the driver catalog signature before installing unless `-AllowTestSigned` is explicitly supplied for a development machine.
 
+Verify a signed package before bundling it:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify-keyboard-driver-package.ps1 -ZipPath .\artifacts\keyboard-filter\AppleKeyboardFilterDriver.zip -RequireAllArchitectures
+```
+
 ## GitHub Artifact Build
 
 The `keyboard-driver` GitHub Actions workflow builds unsigned AMD64 and ARM64 driver packages on a Windows runner with WDK 26100:
@@ -63,3 +69,5 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1 -Runtime 
 ```
 
 When the signed package is bundled, the setup app installs it together with the Magic Trackpad Precision Touchpad driver.
+
+The GitHub `release` workflow refuses to create a full Globe/Fn release unless a trusted signed keyboard driver zip is supplied. See [release.md](release.md).
