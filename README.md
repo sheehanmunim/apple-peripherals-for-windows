@@ -137,7 +137,7 @@ Control Panel > Programs > Programs and Features > Apple Peripherals for Windows
 From the repo root:
 
 ```powershell
-.\scripts\build-installer.ps1
+.\scripts\build-installer.ps1 -Runtime win-x64 -KeyboardDriverZip .\artifacts\keyboard-filter\AppleKeyboardFilterDriver-signed.zip -RequireKeyboardDriver
 ```
 
 The setup executable is created at:
@@ -149,14 +149,22 @@ artifacts\installer\ApplePeripheralsSetup-win-x64.exe
 Build the ARM64 installer with:
 
 ```powershell
-.\scripts\build-installer.ps1 -Runtime win-arm64
+.\scripts\build-installer.ps1 -Runtime win-arm64 -KeyboardDriverZip .\artifacts\keyboard-filter\AppleKeyboardFilterDriver-signed.zip -RequireKeyboardDriver
 ```
 
-Build a full installer with a signed Magic Keyboard Globe/Fn filter bundled:
+A public installer is one `.exe` that bundles the app payload, the Microsoft-signed Magic Trackpad Precision Touchpad driver, and the Microsoft-signed Apple Keyboard Filter driver. The keyboard driver ZIP must be the installer-ready package produced after Microsoft driver signing:
 
 ```powershell
-.\scripts\build-installer.ps1 -Runtime win-x64 -KeyboardDriverZip .\artifacts\keyboard-filter\AppleKeyboardFilterDriver.zip -RequireKeyboardDriver
+.\scripts\package-signed-keyboard-driver.ps1 -SignedPackage .\path\from-partner-center.cab -RequireMicrosoftSignature
 ```
+
+For app/UI development only, build an installer that omits the keyboard filter driver with:
+
+```powershell
+.\scripts\build-installer.ps1 -AppOnly
+```
+
+Do not publish app-only installers as end-user releases because Globe/Fn remapping needs the bundled signed keyboard filter driver.
 
 ## Manual Developer Install
 

@@ -5,7 +5,8 @@ param(
     [string]$Version = "",
     [string]$OutputDir = "",
     [string]$KeyboardDriverZip = "",
-    [switch]$RequireKeyboardDriver
+    [switch]$RequireKeyboardDriver,
+    [switch]$AppOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,6 +54,30 @@ if (![string]::IsNullOrWhiteSpace($Version)) {
     $versionArgs += "-p:InformationalVersion=$informationalVersion"
 }
 
+if ($AppOnly -and (![string]::IsNullOrWhiteSpace($KeyboardDriverZipPath) -or $RequireKeyboardDriver)) {
+    throw "Do not pass -KeyboardDriverZip or -RequireKeyboardDriver with -AppOnly. App-only builds are for development/testing and do not bundle the Magic Keyboard driver."
+}
+if (!$AppOnly -and [string]::IsNullOrWhiteSpace($KeyboardDriverZipPath)) {
+    throw "A full installer must bundle a Microsoft-signed Magic Keyboard driver. Pass -KeyboardDriverZip with an installer-ready signed package, or pass -AppOnly for a development installer that only bundles the app and signed trackpad driver."
+}
+if (![string]::IsNullOrWhiteSpace($KeyboardDriverZipPath)) {
+    $KeyboardDriverZipPath = [IO.Path]::GetFullPath($KeyboardDriverZipPath)
+    if (!(Test-Path $KeyboardDriverZipPath)) {
+        throw "KeyboardDriverZip was provided but was not found: $KeyboardDriverZipPath"
+    }
+
+    $ResolvedArtifactsWithSeparator = $ResolvedArtifacts.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+    if ($KeyboardDriverZipPath.StartsWith($ResolvedArtifactsWithSeparator, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "KeyboardDriverZip must not be inside OutputDir because the output directory is recreated during installer builds."
+    }
+
+    Write-Host "Verifying Microsoft-signed Magic Keyboard driver package..."
+    & (Join-Path $PSScriptRoot "verify-keyboard-driver-package.ps1") -ZipPath $KeyboardDriverZipPath -Runtime $Runtime -RequireMicrosoftSignature
+    if ($LASTEXITCODE -ne 0) {
+        throw "Keyboard driver package verification failed with exit code $LASTEXITCODE."
+    }
+}
+
 if (Test-Path $ArtifactsRoot) {
     Remove-Item -LiteralPath $ArtifactsRoot -Recurse -Force
 }
@@ -74,20 +99,6 @@ dotnet publish $AppProject `
 
 if (!(Test-Path (Join-Path $AppPayloadDir "MagicTrackpad.exe"))) {
     throw "MagicTrackpad.exe was not published to the app payload."
-}
-
-if (![string]::IsNullOrWhiteSpace($KeyboardDriverZipPath) -and !(Test-Path $KeyboardDriverZipPath)) {
-    throw "KeyboardDriverZip was provided but was not found: $KeyboardDriverZipPath"
-}
-if ($RequireKeyboardDriver -and [string]::IsNullOrWhiteSpace($KeyboardDriverZipPath)) {
-    throw "A trusted signed KeyboardDriverZip is required for this installer build."
-}
-if (![string]::IsNullOrWhiteSpace($KeyboardDriverZipPath)) {
-    Write-Host "Verifying signed Magic Keyboard driver package..."
-    & (Join-Path $PSScriptRoot "verify-keyboard-driver-package.ps1") -ZipPath $KeyboardDriverZipPath -Runtime $Runtime
-    if ($LASTEXITCODE -ne 0) {
-        throw "Keyboard driver package verification failed with exit code $LASTEXITCODE."
-    }
 }
 
 Write-Host "Compressing app payload..."

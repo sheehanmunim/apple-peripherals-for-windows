@@ -156,7 +156,7 @@ Build the setup `.exe` with the signed keyboard driver package:
 powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1 -Runtime win-x64 -KeyboardDriverZip .\artifacts\keyboard-filter\AppleKeyboardFilterDriver-signed.zip -RequireKeyboardDriver
 ```
 
-When the signed package is bundled, the setup app installs it together with the Magic Trackpad Precision Touchpad driver.
+When the Microsoft-signed package is bundled, the setup app installs it together with the bundled Magic Trackpad Precision Touchpad driver from the same setup `.exe`.
 After installation, setup runs the installed app's `--keyboard-filter-status --require-ready --require-microsoft-signer` check and reports when a reconnect or restart is still needed before Globe/Fn remapping can work.
 
-The GitHub `release` workflow refuses to create a full Globe/Fn release unless a trusted signed keyboard driver zip is supplied. See [release.md](release.md).
+The GitHub `release` workflow refuses to create an end-user release unless a Microsoft-signed keyboard driver zip and SHA-256 are supplied. See [release.md](release.md).

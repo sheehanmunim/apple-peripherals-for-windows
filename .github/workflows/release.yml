@@ -9,17 +9,12 @@ on:
         type: string
       signed_keyboard_driver_url:
         description: "URL to the Microsoft/trusted signed AppleKeyboardFilterDriver.zip"
-        required: false
+        required: true
         type: string
       signed_keyboard_driver_sha256:
         description: "Expected SHA-256 of the signed keyboard driver zip"
-        required: false
-        type: string
-      require_signed_keyboard_driver:
-        description: "Fail unless a signed keyboard driver zip is supplied"
         required: true
-        default: true
-        type: boolean
+        type: string
 
 permissions:
   contents: write
@@ -53,24 +48,20 @@ jobs:
 
           $url = "${{ inputs.signed_keyboard_driver_url }}"
           $expectedHash = "${{ inputs.signed_keyboard_driver_sha256 }}"
-          $requireSignedDriver = [bool]::Parse("${{ inputs.require_signed_keyboard_driver }}")
           $driverZip = "artifacts\release\AppleKeyboardFilterDriver-signed.zip"
 
           if ([string]::IsNullOrWhiteSpace($url)) {
-            if ($requireSignedDriver) {
-              throw "A signed_keyboard_driver_url is required for a full Globe/Fn release."
-            }
-
-            "KEYBOARD_DRIVER_ZIP=" | Out-File -FilePath $env:GITHUB_ENV -Append
-            exit 0
+            throw "A signed_keyboard_driver_url is required because public releases must bundle the Magic Keyboard driver."
           }
 
           Invoke-WebRequest -Uri $url -OutFile $driverZip
-          if (![string]::IsNullOrWhiteSpace($expectedHash)) {
-            $actualHash = (Get-FileHash -LiteralPath $driverZip -Algorithm SHA256).Hash.ToLowerInvariant()
-            if ($actualHash -ne $expectedHash.ToLowerInvariant()) {
-              throw "Keyboard driver SHA-256 mismatch. Expected $expectedHash but got $actualHash."
-            }
+          if ([string]::IsNullOrWhiteSpace($expectedHash)) {
+            throw "signed_keyboard_driver_sha256 is required for release builds."
+          }
+
+          $actualHash = (Get-FileHash -LiteralPath $driverZip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $expectedHash.ToLowerInvariant()) {
+            throw "Keyboard driver SHA-256 mismatch. Expected $expectedHash but got $actualHash."
           }
 
           powershell -ExecutionPolicy Bypass -File .\scripts\verify-keyboard-driver-package.ps1 -ZipPath $driverZip -RequireAllArchitectures -RequireMicrosoftSignature
@@ -96,9 +87,7 @@ jobs:
               "-Version", $versionNumber,
               "-OutputDir", $outDir
             )
-            if (![string]::IsNullOrWhiteSpace($env:KEYBOARD_DRIVER_ZIP)) {
-              $args += @("-KeyboardDriverZip", $env:KEYBOARD_DRIVER_ZIP, "-RequireKeyboardDriver")
-            }
+            $args += @("-KeyboardDriverZip", $env:KEYBOARD_DRIVER_ZIP, "-RequireKeyboardDriver")
 
             powershell @args
             Copy-Item -LiteralPath (Join-Path $outDir "ApplePeripheralsSetup-$runtime.exe") -Destination artifacts\release -Force
@@ -107,26 +96,19 @@ jobs:
       - name: Write release notes
         shell: pwsh
         run: |
-          $hasKeyboardDriver = ![string]::IsNullOrWhiteSpace($env:KEYBOARD_DRIVER_ZIP)
           $notes = @(
             "Apple Peripherals for Windows $env:RELEASE_TAG",
             "",
             "- Installs the native settings app and background bridge.",
             "- Requests Administrator approval because the installer adds bundled Windows drivers.",
             "- Bundles the Microsoft-signed Magic Trackpad Precision Touchpad driver.",
+            "- Bundles the Microsoft-signed Apple Keyboard Filter driver so Globe/Fn can map through the app setting.",
             "- Includes current Magic Keyboard modifier remapping, F-key mappings, and settings UI.",
             "- Adds a Magic Keyboard driver repair action from the keyboard status panel.",
             "- Adds a live Globe/Fn key probe in the Magic Keyboard page and `--test-globe` command.",
             "- Restarts detected Magic Keyboard driver targets after keyboard-filter installation before rechecking status.",
             "- Records whether the installer bundles the signed keyboard filter so the app can show the right Globe/Fn action."
           )
-          if ($hasKeyboardDriver) {
-            $notes += "- Bundles a trusted signed Apple Keyboard Filter driver so Globe/Fn can map through the app setting."
-          }
-          else {
-            $notes += ""
-            $notes += "This release does not bundle the Apple Keyboard Filter driver. Globe/Fn remapping requires a separate trusted signed keyboard filter package."
-          }
 
           $notes -join [Environment]::NewLine | Set-Content -Path artifacts\release-notes.md
 
