@@ -2,7 +2,8 @@ param(
     [string]$InstallDir = "$env:LOCALAPPDATA\ApplePeripheralsForWindows",
     [string]$TaskName = "ApplePeripheralsBridge",
     [ValidateSet("win-x64", "win-arm64")]
-    [string]$Runtime = "win-x64"
+    [string]$Runtime = "win-x64",
+    [switch]$InstallPrecisionTrackpadDriver
 )
 
 $ErrorActionPreference = "Stop"
@@ -124,3 +125,7 @@ else {
 Write-Host "Settings app shortcut: $StartMenuDir\Apple Peripherals Settings.lnk"
 Write-Host "Installed app: $ExePath"
 Write-Host "Config: $ConfigPath"
+
+if ($InstallPrecisionTrackpadDriver) {
+    & (Join-Path $PSScriptRoot "install-trackpad-driver.ps1")
+}

@@ -27,6 +27,8 @@ internal static class NativeMethods
     public const uint FileShareWrite = 0x00000002;
     public const uint OpenExisting = 3;
     public const uint FileAttributeNormal = 0x00000080;
+    public const int ErrorOperationAborted = 995;
+    public const int ErrorInvalidHandle = 6;
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern uint GetRawInputDeviceList(
@@ -75,6 +77,19 @@ internal static class NativeMethods
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool CloseHandle(IntPtr handle);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ReadFile(
+        IntPtr handle,
+        byte[] buffer,
+        uint numberOfBytesToRead,
+        out uint numberOfBytesRead,
+        IntPtr overlapped);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool CancelIoEx(IntPtr handle, IntPtr overlapped);
 
     [DllImport("hid.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

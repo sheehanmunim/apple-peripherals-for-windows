@@ -7,6 +7,8 @@ namespace MagicTrackpad.Hid;
 
 public static class DeviceActions
 {
+    private const int HidpStatusSuccess = 0x00110000;
+
     public static IReadOnlyList<HidDeviceInfo> EnumerateRawInputDevices()
     {
         var count = 0u;
@@ -102,6 +104,43 @@ public static class DeviceActions
         }
 
         return false;
+    }
+
+    public static int InputReportLength(IntPtr handle)
+    {
+        if (!NativeMethods.HidD_GetPreparsedData(handle, out var preparsedData))
+        {
+            return 64;
+        }
+
+        try
+        {
+            return NativeMethods.HidP_GetCaps(preparsedData, out var caps) == HidpStatusSuccess
+                ? Math.Max(3, (int)caps.InputReportByteLength)
+                : 64;
+        }
+        finally
+        {
+            NativeMethods.HidD_FreePreparsedData(preparsedData);
+        }
+    }
+
+    public static bool IsReadableTrackpadCollection(HidDeviceInfo device)
+    {
+        if (!device.IsAppleMagicTrackpad)
+        {
+            return false;
+        }
+
+        if (device.UsagePage is null)
+        {
+            return true;
+        }
+
+        return device.UsagePage == 0x0D ||
+            device.UsagePage >= 0xFF00 ||
+            device.Name.Contains("COL02", StringComparison.OrdinalIgnoreCase) ||
+            device.Name.Contains("COL03", StringComparison.OrdinalIgnoreCase);
     }
 
     public static string PhysicalKey(string name)

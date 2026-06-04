@@ -19,9 +19,12 @@ internal sealed class BridgeApplicationContext : ApplicationContext
     private readonly RegisteredWaitHandle reloadRegistration;
     private readonly System.Windows.Forms.Timer? stopTimer;
     private readonly NotifyIcon notifyIcon;
+    private readonly object reportLock = new();
     private readonly HashSet<string> announced = [];
     private readonly HashSet<string> enabled = [];
+    private readonly Dictionary<string, RecentReport> recentReports = new(StringComparer.OrdinalIgnoreCase);
     private readonly RawInputWindow window;
+    private readonly DirectHidReportReader directReader;
     private DateTime lastConfigWrite;
     private volatile bool reloadRequested;
 
@@ -49,6 +52,7 @@ internal sealed class BridgeApplicationContext : ApplicationContext
             ContextMenuStrip = BuildMenu(),
         };
 
+        directReader = new DirectHidReportReader(OnReport);
         window = new RawInputWindow(OnReport, OnDevicesChanged);
         reenableTimer.Interval = Math.Max(3000, (int)(config.ReenableIntervalSeconds * 1000));
         reenableTimer.Tick += (_, _) => ReenableTrackpads();
@@ -135,6 +139,8 @@ internal sealed class BridgeApplicationContext : ApplicationContext
                 }
             }
         }
+
+        directReader.UpdateDevices(devices);
     }
 
     private void ReenableTrackpads()
@@ -151,21 +157,54 @@ internal sealed class BridgeApplicationContext : ApplicationContext
                 enabled.Add(group.Key);
             }
         }
+
+        directReader.UpdateDevices(DeviceActions.EnumerateRawInputDevices());
     }
 
     private void OnReport(HidDeviceInfo device, byte[] report)
     {
-        DeviceBattery.TryCacheReport(device, report);
-
-        if (config.LogRawReports)
+        lock (reportLock)
         {
-            LogRawReport(device, report);
+            if (IsDuplicateReport(device, report))
+            {
+                return;
+            }
+
+            DeviceBattery.TryCacheReport(device, report);
+
+            if (config.LogRawReports)
+            {
+                LogRawReport(device, report);
+            }
+
+            foreach (var frame in HidReportParser.ParseReports(report))
+            {
+                engine.ProcessFrame(frame);
+            }
+        }
+    }
+
+    private bool IsDuplicateReport(HidDeviceInfo device, byte[] report)
+    {
+        if (report.Length == 0)
+        {
+            return true;
         }
 
-        foreach (var frame in HidReportParser.ParseReports(report))
+        var key = $"{DeviceActions.PhysicalKey(device.Name)}:{Convert.ToHexString(report)}";
+        var now = DateTimeOffset.UtcNow;
+        if (recentReports.TryGetValue(key, out var recent) && now - recent.SeenAt < TimeSpan.FromMilliseconds(8))
         {
-            engine.ProcessFrame(frame);
+            return true;
         }
+
+        recentReports[key] = new RecentReport(now);
+        foreach (var stale in recentReports.Where(item => now - item.Value.SeenAt > TimeSpan.FromSeconds(1)).Select(item => item.Key).ToList())
+        {
+            recentReports.Remove(stale);
+        }
+
+        return false;
     }
 
     private void LogRawReport(HidDeviceInfo device, byte[] report)
@@ -188,9 +227,12 @@ internal sealed class BridgeApplicationContext : ApplicationContext
             reloadSignal.Dispose();
             keyboard.Dispose();
             window.Dispose();
+            directReader.Dispose();
             notifyIcon.Visible = false;
             notifyIcon.Dispose();
         }
         base.Dispose(disposing);
     }
+
+    private sealed record RecentReport(DateTimeOffset SeenAt);
 }

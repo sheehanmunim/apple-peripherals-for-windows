@@ -31,6 +31,13 @@ internal static class Program
                 return ok ? 0 : 2;
             }
 
+            if (parsed.Mode == AppMode.DiagnoseHid)
+            {
+                return HidDiagnostics.Run(
+                    parsed.DiagnosticsPath ?? Path.Combine(AppContext.BaseDirectory, "diagnostics", "hid-diagnostics.json"),
+                    parsed.Seconds ?? 10);
+            }
+
             if (parsed.Mode == AppMode.WriteConfig)
             {
                 ConfigStore.Save(configPath, new AppConfig());
@@ -68,6 +75,7 @@ internal enum AppMode
     Settings,
     Bridge,
     Enable,
+    DiagnoseHid,
     SelfTest,
     WriteConfig,
     MigrateConfig,
@@ -77,6 +85,7 @@ internal sealed class CommandLine
 {
     public AppMode Mode { get; init; } = AppMode.Settings;
     public string? ConfigPath { get; init; }
+    public string? DiagnosticsPath { get; init; }
     public bool DryRun { get; init; }
     public double? Seconds { get; init; }
 
@@ -84,6 +93,7 @@ internal sealed class CommandLine
     {
         var mode = AppMode.Settings;
         string? configPath = null;
+        string? diagnosticsPath = null;
         var dryRun = false;
         double? seconds = null;
 
@@ -103,6 +113,10 @@ internal sealed class CommandLine
                 case "enable":
                     mode = AppMode.Enable;
                     break;
+                case "--diagnose-hid":
+                case "diagnose-hid":
+                    mode = AppMode.DiagnoseHid;
+                    break;
                 case "--self-test":
                     mode = AppMode.SelfTest;
                     break;
@@ -120,6 +134,9 @@ internal sealed class CommandLine
                 case "--config":
                     configPath = index + 1 < args.Length ? args[++index] : configPath;
                     break;
+                case "--diagnostics-path":
+                    diagnosticsPath = index + 1 < args.Length ? args[++index] : diagnosticsPath;
+                    break;
                 case "--seconds":
                     if (index + 1 < args.Length && double.TryParse(args[++index], out var value))
                     {
@@ -133,6 +150,7 @@ internal sealed class CommandLine
         {
             Mode = mode,
             ConfigPath = configPath,
+            DiagnosticsPath = diagnosticsPath,
             DryRun = dryRun,
             Seconds = seconds,
         };

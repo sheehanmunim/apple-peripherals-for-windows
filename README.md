@@ -1,17 +1,18 @@
 # Apple Peripherals for Windows
 
-Native Windows settings app and background bridge for Apple Magic Trackpad and Magic Keyboard support over Bluetooth.
+Native Windows settings app, background bridge, and driver installer for Apple Magic Trackpad and Magic Keyboard support over Bluetooth.
 
-Windows can pair Apple peripherals as Bluetooth HID devices, but many of the useful Mac-style behaviors are missing. This repo provides one C#/.NET Windows app that enables Magic Trackpad multitouch mode, reads the trackpad through Windows Raw Input, and applies the trackpad gestures and keyboard remaps you configure.
+Windows can pair Apple peripherals as Bluetooth HID devices, but many of the useful Mac-style behaviors are missing. This repo provides one C#/.NET Windows app that enables Magic Trackpad multitouch mode where user-mode HID access is available, reads reports through Raw Input plus direct HID collection readers, and applies the trackpad gestures and keyboard remaps you configure. For full Windows Precision Touchpad behavior, install the signed Precision driver with the driver installer below.
 
 ## Native App
 
 - Built with C# on .NET 8 and WinForms.
 - Installs `MagicTrackpad.exe` as one per-user background bridge for keyboard and trackpad support.
-- Uses a dense device-tab settings UI with separate Magic Trackpad and Magic Keyboard pages.
+- Uses a light device-studio settings UI with separate Magic Trackpad and Magic Keyboard pages.
 - Adds Start Menu shortcuts for settings and manual bridge launch.
 - Registers a per-user scheduled task when Windows allows it, and falls back to a Startup shortcut when task registration is blocked.
 - Keeps Bluetooth multitouch mode refreshed after reconnects and wake events.
+- Adds a direct HID report reader and diagnostics command for validating whether Windows exposes raw touch reports to user mode.
 - Reloads saved settings while the bridge is running.
 - Detects Apple Magic Keyboard devices and applies the configured keyboard remaps while one is connected.
 
@@ -41,7 +42,8 @@ Trackpad:
 
 Hardware/Windows limits:
 
-- Force Touch pressure and haptic feedback depend on the Apple HID report stream and Windows Bluetooth stack. The bridge preserves pressure values where reports expose them, but Windows does not provide macOS's haptic feedback engine.
+- If Windows binds the Magic Trackpad only as a mouse, the app can detect the device but cannot read protected multitouch contacts from the system-owned collection. Install the Precision Touchpad driver below for full multitouch behavior.
+- Force Touch pressure and haptic feedback depend on the Apple HID report stream and Windows Bluetooth stack. The bridge preserves pressure values where reports expose them, but Windows does not provide macOS's haptic feedback engine through the basic mouse stack.
 - Display brightness uses Windows monitor brightness APIs. It works on monitors/drivers that expose brightness control and is ignored by hardware that refuses software brightness changes.
 
 ## Build And Test
@@ -78,6 +80,12 @@ Short bridge smoke test:
 .\scripts\run.ps1 -DryRun -Seconds 5
 ```
 
+HID diagnostics:
+
+```powershell
+dotnet run --project .\src\MagicTrackpad.App\MagicTrackpad.App.csproj -c Release -- --diagnose-hid --seconds 10 --diagnostics-path .\hid-diagnostics.json
+```
+
 ## Install
 
 Use PowerShell from the repo root:
@@ -103,6 +111,20 @@ Open settings after install from the Start Menu, or run:
 ```powershell
 .\scripts\settings.ps1 -Installed
 ```
+
+Install the Microsoft-signed Magic Trackpad Precision Touchpad driver from an elevated PowerShell window:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-trackpad-driver.ps1
+```
+
+Or install the app and driver together from an elevated PowerShell window:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -InstallPrecisionTrackpadDriver
+```
+
+The driver installer downloads the Microsoft-signed MagicTrackpad2ForWindows package, verifies Authenticode signatures, selects AMD64 or ARM64, and installs `AmtPtpDevice.inf` with `pnputil`. Reconnect the trackpad or reboot if Windows keeps the old mouse binding loaded.
 
 Uninstall:
 
