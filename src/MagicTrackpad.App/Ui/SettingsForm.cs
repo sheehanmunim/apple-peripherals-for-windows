@@ -278,7 +278,7 @@ public sealed class SettingsForm : Form
         var grid = new TableLayoutPanel
         {
             Width = KeyboardStageWidth + KeyboardInspectorWidth + DevicePageGutter,
-            Height = 1120,
+            Height = 1240,
             Anchor = AnchorStyles.Top | AnchorStyles.Left,
             ColumnCount = 2,
             RowCount = 1,
@@ -304,6 +304,7 @@ public sealed class SettingsForm : Form
         AddCheck(keymap, "KeyboardOnlyWhenAppleKeyboardPresent", "Only apply while an Apple keyboard is connected");
         AddCheck(keymap, "KeyboardSwapExchangedKeys", "Swap exchanged modifier keys");
         AddChoice(keymap, "KeyboardFnGlobe", "Globe / Fn key:", KeyActionChoices(), 220);
+        AddKeyboardFilterStatus(keymap);
 
         var modifiers = Group(inspector, "Modifier Assignment", KeyboardInspectorWidth);
         var actions = KeyActionChoices();
@@ -934,6 +935,50 @@ public sealed class SettingsForm : Form
         button.Click += (_, _) => action();
         row.Controls.Add(button);
         parent.Controls.Add(row);
+    }
+
+    private void AddKeyboardFilterStatus(FlowLayoutPanel parent)
+    {
+        var status = KeyboardFilterDriverStatus.Query();
+        var contentWidth = ContentWidth(parent);
+
+        var statusRow = Row(width: contentWidth - 8);
+        statusRow.Controls.Add(ThemedLabel("Driver status:", 205));
+        statusRow.Controls.Add(new Label
+        {
+            Text = status.Ready ? "Active" : "Not active",
+            Width = Math.Max(120, contentWidth - 225),
+            Height = 28,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = status.Ready ? Accent : Color.FromArgb(174, 89, 72),
+            BackColor = Color.Transparent,
+        });
+        parent.Controls.Add(statusRow);
+
+        var detail = Row(50, contentWidth - 8);
+        detail.Controls.Add(new Label
+        {
+            Text = status.Diagnosis,
+            Width = contentWidth - 16,
+            Height = 46,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = TextMuted,
+            BackColor = Color.Transparent,
+        });
+        parent.Controls.Add(detail);
+
+        var driverRow = Row(width: contentWidth - 8);
+        driverRow.Controls.Add(ThemedLabel("Windows driver:", 205));
+        driverRow.Controls.Add(new Label
+        {
+            Text = status.TargetDriverInfPath ?? "not bound",
+            Width = Math.Max(120, contentWidth - 225),
+            Height = 28,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = TextMuted,
+            BackColor = Color.Transparent,
+        });
+        parent.Controls.Add(driverRow);
     }
 
     [DllImport("dwmapi.dll")]
@@ -1692,7 +1737,7 @@ internal sealed class AppHeader : Control
         using var eyebrowFont = new Font("Segoe UI Semibold", 7.8F);
         using var titleFont = new Font("Segoe UI Semibold", 15F);
         TextRenderer.DrawText(e.Graphics, "DEVICE STUDIO", eyebrowFont, new Rectangle(22, 10, 220, 18), ThemePalette.TextMuted, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-        TextRenderer.DrawText(e.Graphics, "Magic Trackpad + Keyboard", titleFont, new Rectangle(22, 28, 420, 28), ThemePalette.TextMain, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        TextRenderer.DrawText(e.Graphics, "Magic Trackpad + Keyboard", titleFont, new Rectangle(22, 26, 480, 34), ThemePalette.TextMain, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoClipping);
 
         var x = Width - 24;
         foreach (var device in devices.GroupBy(item => item.Kind).Select(group => group.First()).Reverse())

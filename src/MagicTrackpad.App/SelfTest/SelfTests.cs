@@ -15,6 +15,7 @@ internal static class SelfTests
         {
             TestHotkeys();
             TestKeyboardDetection();
+            TestKeyboardFilterStatus();
             TestReports();
             TestBatteryReports();
             TestGestures();
@@ -78,6 +79,30 @@ internal static class SelfTests
         Require(!other.IsAppleKeyboard);
         Require(!other.IsAppleMagicTrackpad);
         Require(!RawInputWindow.ShouldDispatchRawReport(other));
+    }
+
+    private static void TestKeyboardFilterStatus()
+    {
+        var active = KeyboardFilterDriverStatus.Evaluate(
+            true,
+            [new KeyboardFilterTargetState(@"BTHENUM\Apple", true, "AppleKeyboardFilter.inf", "HidBth", ["AppleKeyboardFilter"])],
+            true);
+        Require(active.Ready);
+        Require(active.Diagnosis == "Globe/Fn driver is active.");
+
+        var missing = KeyboardFilterDriverStatus.Evaluate(
+            true,
+            [new KeyboardFilterTargetState(@"BTHENUM\Apple", false, "hidbth.inf", "HidBth", [])],
+            false);
+        Require(!missing.Ready);
+        Require(missing.Diagnosis == "Globe/Fn driver is not installed.");
+
+        var waiting = KeyboardFilterDriverStatus.Evaluate(
+            true,
+            [new KeyboardFilterTargetState(@"BTHENUM\Apple", false, "hidbth.inf", "HidBth", [])],
+            true);
+        Require(!waiting.Ready);
+        Require(waiting.Diagnosis == "Globe/Fn driver is waiting for reconnect or restart.");
     }
 
     private static void TestGestures()
