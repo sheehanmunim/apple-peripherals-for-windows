@@ -24,10 +24,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Windows Driver Kit
+      - name: Install Windows SDK and Driver Kit
         shell: pwsh
         run: |
-          winget install --id Microsoft.WindowsWDK.10.0.26100 -s winget --silent --accept-package-agreements --accept-source-agreements
+          $ProgressPreference = "SilentlyContinue"
+          $downloads = Join-Path $env:RUNNER_TEMP "wdk-downloads"
+          New-Item -ItemType Directory -Force -Path $downloads | Out-Null
+
+          $sdkSetup = Join-Path $downloads "winsdksetup.exe"
+          $wdkSetup = Join-Path $downloads "wdksetup.exe"
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2338977" -OutFile $sdkSetup
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?linkid=2335869" -OutFile $wdkSetup
+
+          foreach ($setup in @($sdkSetup, $wdkSetup)) {
+            $process = Start-Process -FilePath $setup -ArgumentList @("/quiet", "/norestart") -Wait -PassThru
+            if ($process.ExitCode -notin @(0, 3010)) {
+              throw "$setup failed with exit code $($process.ExitCode)."
+            }
+          }
 
       - name: Build driver package
         shell: pwsh
