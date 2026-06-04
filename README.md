@@ -218,7 +218,13 @@ For local driver development only, use the test-signing helper from elevated Pow
 powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -EnableTestSigning
 ```
 
-That helper creates a local test code-signing certificate, trusts it for this machine, signs the local driver catalog, enables Windows test-signing mode, and installs the filter. It is not a public-user install path; reboot after enabling test-signing, then rerun the health check.
+If this PC does not have Visual Studio Build Tools and WDK installed, point the helper at an existing unsigned CI package instead:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -DriverDir .\artifacts\keyboard-filter\AMD64 -SkipBuild -EnableTestSigning -Elevate
+```
+
+That helper creates a local test code-signing certificate, trusts it for this machine, signs a temporary copy of the local driver catalog, enables Windows test-signing mode, and installs the filter. It is not a public-user install path; reboot after enabling test-signing, then rerun the health check.
 
 Public installers must bundle a trusted signed keyboard driver package. See [docs/keyboard-filter-driver.md](docs/keyboard-filter-driver.md) and [docs/release.md](docs/release.md).
 

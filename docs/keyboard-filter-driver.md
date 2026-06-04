@@ -74,7 +74,13 @@ For local driver development only, run from elevated PowerShell:
 powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -EnableTestSigning
 ```
 
-The helper creates or reuses a local code-signing certificate, trusts it on the machine, builds and signs the catalog, enables Windows test-signing mode, and installs the filter with `-AllowTestSigned`. Reboot after enabling test-signing and rerun `scripts\check-keyboard-filter-driver.ps1`. This path is deliberately not used by the public setup executable.
+If the machine does not have Visual Studio Build Tools and WDK installed, use an existing unsigned GitHub Actions artifact or local package directory:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -DriverDir .\artifacts\keyboard-filter\AMD64 -SkipBuild -EnableTestSigning -Elevate
+```
+
+The helper creates or reuses a local code-signing certificate, trusts it on the machine, signs a temporary copy of the catalog, enables Windows test-signing mode, and installs the filter with `-AllowTestSigned`. Reboot after enabling test-signing and rerun `scripts\check-keyboard-filter-driver.ps1`. This path is deliberately not used by the public setup executable.
 
 ## GitHub Artifact Build
 
