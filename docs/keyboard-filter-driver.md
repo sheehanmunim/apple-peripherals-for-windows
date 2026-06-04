@@ -132,5 +132,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1 -Runtime 
 ```
 
 When the signed package is bundled, the setup app installs it together with the Magic Trackpad Precision Touchpad driver.
+After installation, setup runs the installed app's `--keyboard-filter-status --require-ready --require-microsoft-signer` check and reports when a reconnect or restart is still needed before Globe/Fn remapping can work.
 
 The GitHub `release` workflow refuses to create a full Globe/Fn release unless a trusted signed keyboard driver zip is supplied. See [release.md](release.md).

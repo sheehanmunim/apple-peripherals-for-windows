@@ -283,6 +283,7 @@ internal static class Installer
         }
 
         var rebootRequired = false;
+        var keyboardDriverPending = false;
         if (installDriver)
         {
             if (!IsAdministrator)
@@ -295,16 +296,30 @@ internal static class Installer
             if (HasBundledKeyboardDriver)
             {
                 progress.Report("Installing Magic Keyboard Globe/Fn driver...");
-                rebootRequired |= InstallKeyboardFilterDriver(progress);
+                var keyboardDriverRebootRequired = InstallKeyboardFilterDriver(progress);
+                rebootRequired |= keyboardDriverRebootRequired;
+                if (!VerifyKeyboardFilterReady(appExe, progress, out var keyboardStatus))
+                {
+                    keyboardDriverPending = true;
+                    progress.Report(keyboardStatus);
+                }
             }
         }
 
         progress.Report("Registering uninstaller...");
         RegisterUninstaller(appExe);
 
-        var message = rebootRequired
-            ? "Apple Peripherals was installed. Windows reported that a restart is required to finish the trackpad driver install."
-            : "Apple Peripherals was installed.";
+        var messages = new List<string> { "Apple Peripherals was installed." };
+        if (rebootRequired)
+        {
+            messages.Add("Windows reported that a restart is required to finish driver installation.");
+        }
+        if (keyboardDriverPending)
+        {
+            messages.Add("The Magic Keyboard Globe/Fn driver is not active yet; reconnect the keyboard or restart Windows, then check driver status in the app.");
+        }
+
+        var message = string.Join(" ", messages);
         return new InstallResult(message, rebootRequired);
     }
 
@@ -530,6 +545,29 @@ internal static class Installer
     }
 
     private static string PowerShellQuote(string value) => "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
+
+    private static bool VerifyKeyboardFilterReady(string appExe, IProgress<string> progress, out string statusText)
+    {
+        var statusPath = Path.Combine(Path.GetTempPath(), $"AppleKeyboardFilterStatus-{Guid.NewGuid():N}.txt");
+        try
+        {
+            progress.Report("Verifying Magic Keyboard Globe/Fn driver status...");
+            var process = RunProcess(
+                appExe,
+                $"--keyboard-filter-status --require-ready --require-microsoft-signer --output \"{statusPath}\"",
+                wait: true);
+
+            statusText = File.Exists(statusPath)
+                ? File.ReadAllText(statusPath).Trim()
+                : $"Magic Keyboard Globe/Fn driver status command exited with code {process.ExitCode}.";
+
+            return process.ExitCode == 0;
+        }
+        finally
+        {
+            DeleteFileIfExists(statusPath);
+        }
+    }
 
     private static void StartBridge(string appExe)
     {
