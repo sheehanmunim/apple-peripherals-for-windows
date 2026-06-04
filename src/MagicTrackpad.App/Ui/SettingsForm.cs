@@ -1636,43 +1636,65 @@ internal sealed class TrackpadPreview : Control
     {
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        var width = Math.Max(220, Width - 54);
-        var height = Math.Min(170, (int)Math.Round(width * 0.64));
-        var body = new Rectangle((Width - width) / 2, Math.Max(24, (Height - height) / 2 - 8), width, height);
-        var side = new Rectangle(body.Left + 3, body.Bottom - 14, body.Width - 6, 22);
-        var shadow = new Rectangle(body.Left + 10, side.Bottom - 2, body.Width - 20, 16);
+        var width = Math.Min(Math.Max(230, Width - 46), 520);
+        var height = Math.Min(184, (int)Math.Round(width * 0.69));
+        var body = new Rectangle((Width - width) / 2, Math.Max(18, (Height - height) / 2 - 8), width, height);
+        var wedge = new Rectangle(body.Left + 7, body.Bottom - 16, body.Width - 14, 28);
+        var shadow = new Rectangle(body.Left + 12, wedge.Bottom - 4, body.Width - 24, 18);
 
         using (var shadowPath = Rounded(shadow, 18))
         using (var shadowBrush = new PathGradientBrush(shadowPath)
         {
-            CenterColor = Color.FromArgb(105, 0, 0, 0),
+            CenterColor = Color.FromArgb(82, 0, 0, 0),
             SurroundColors = [Color.FromArgb(0, 0, 0, 0)],
         })
         {
             e.Graphics.FillPath(shadowBrush, shadowPath);
         }
 
-        using (var sidePath = Rounded(side, 14))
-        using (var sideFill = new LinearGradientBrush(side, Color.FromArgb(205, 208, 214), Color.FromArgb(138, 143, 151), LinearGradientMode.Vertical))
-        using (var sideBorder = new Pen(Color.FromArgb(118, 124, 134)))
+        using (var wedgePath = Rounded(wedge, 16))
+        using (var wedgeFill = new LinearGradientBrush(wedge, Color.FromArgb(225, 228, 233), Color.FromArgb(154, 160, 169), LinearGradientMode.Vertical))
+        using (var wedgeBorder = new Pen(Color.FromArgb(142, 148, 158)))
         {
-            e.Graphics.FillPath(sideFill, sidePath);
-            e.Graphics.DrawPath(sideBorder, sidePath);
+            e.Graphics.FillPath(wedgeFill, wedgePath);
+            e.Graphics.DrawPath(wedgeBorder, wedgePath);
         }
 
         using var bodyPath = Rounded(body, 18);
-        using var glassFill = new LinearGradientBrush(body, Color.FromArgb(249, 250, 252), Color.FromArgb(219, 222, 227), LinearGradientMode.Vertical);
-        using var glassBorder = new Pen(Color.FromArgb(164, 169, 178));
+        using var glassFill = new LinearGradientBrush(body, Color.FromArgb(255, 255, 255), Color.FromArgb(235, 238, 243), LinearGradientMode.Vertical);
+        using var glassBorder = new Pen(Color.FromArgb(173, 178, 187));
         e.Graphics.FillPath(glassFill, bodyPath);
         e.Graphics.DrawPath(glassBorder, bodyPath);
 
-        var inner = Rectangle.Inflate(body, -10, -10);
-        using var highlight = new Pen(Color.FromArgb(248, 255, 255, 255), 2);
-        e.Graphics.DrawArc(highlight, inner.Left, inner.Top, inner.Width, inner.Height, 202, 136);
+        var rear = new Rectangle(body.Left + 26, body.Top + 11, body.Width - 52, 4);
+        using (var rearFill = new LinearGradientBrush(rear, Color.FromArgb(45, 166, 172, 181), Color.FromArgb(0, 255, 255, 255), LinearGradientMode.Horizontal))
+        {
+            e.Graphics.FillRectangle(rearFill, rear);
+        }
 
-        var bottomLine = new Rectangle(body.Left + 18, body.Bottom - 20, body.Width - 36, 1);
-        using var glassLine = new LinearGradientBrush(bottomLine, Color.FromArgb(0, 255, 255, 255), Color.FromArgb(90, 255, 255, 255), LinearGradientMode.Horizontal);
-        e.Graphics.FillRectangle(glassLine, bottomLine);
+        var inner = Rectangle.Inflate(body, -12, -12);
+        using (var highlight = new Pen(Color.FromArgb(245, 255, 255, 255), 2))
+        {
+            e.Graphics.DrawArc(highlight, inner.Left, inner.Top, inner.Width, inner.Height, 206, 128);
+        }
+
+        var glassSheen = new Rectangle(body.Left + 18, body.Top + 26, body.Width - 36, body.Height / 2);
+        using (var sheenPath = Rounded(glassSheen, 16))
+        using (var sheenFill = new LinearGradientBrush(glassSheen, Color.FromArgb(90, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), LinearGradientMode.Vertical))
+        {
+            e.Graphics.FillPath(sheenFill, sheenPath);
+        }
+
+        var port = new Rectangle(body.Left + body.Width / 2 - 15, wedge.Bottom - 12, 30, 6);
+        using (var portPath = Rounded(port, 3))
+        using (var portFill = new LinearGradientBrush(port, Color.FromArgb(126, 132, 142), Color.FromArgb(86, 91, 100), LinearGradientMode.Vertical))
+        {
+            e.Graphics.FillPath(portFill, portPath);
+        }
+
+        var portGlint = new Rectangle(port.Left + 4, port.Top + 1, port.Width - 8, 1);
+        using var glint = new SolidBrush(Color.FromArgb(110, 255, 255, 255));
+        e.Graphics.FillRectangle(glint, portGlint);
     }
 
     private static GraphicsPath Rounded(Rectangle rect, int radius)
@@ -1711,11 +1733,17 @@ internal sealed class KeyboardPreview : Control
         }
 
         using (var bodyPath = Rounded(keyboard, 14))
-        using (var bodyFill = new LinearGradientBrush(keyboard, Color.FromArgb(224, 227, 232), Color.FromArgb(174, 179, 187), LinearGradientMode.Vertical))
-        using (var border = new Pen(Color.FromArgb(128, 134, 143)))
+        using (var bodyFill = new LinearGradientBrush(keyboard, Color.FromArgb(232, 235, 240), Color.FromArgb(188, 194, 203), LinearGradientMode.Vertical))
+        using (var border = new Pen(Color.FromArgb(142, 149, 160)))
         {
             e.Graphics.FillPath(bodyFill, bodyPath);
             e.Graphics.DrawPath(border, bodyPath);
+        }
+
+        var rearEdge = new Rectangle(keyboard.Left + 18, keyboard.Top + 8, keyboard.Width - 36, 5);
+        using (var rearFill = new LinearGradientBrush(rearEdge, Color.FromArgb(55, 255, 255, 255), Color.FromArgb(8, 127, 135, 148), LinearGradientMode.Vertical))
+        {
+            e.Graphics.FillRectangle(rearFill, rearEdge);
         }
 
         var rows = KeyboardRows();
@@ -1745,6 +1773,14 @@ internal sealed class KeyboardPreview : Control
 
     private static void DrawKey(Graphics graphics, Rectangle rect, string text)
     {
+        if (text == "updown")
+        {
+            var halfHeight = Math.Max(6, (rect.Height - 3) / 2);
+            DrawKey(graphics, new Rectangle(rect.Left, rect.Top, rect.Width, halfHeight), "^");
+            DrawKey(graphics, new Rectangle(rect.Left, rect.Bottom - halfHeight, rect.Width, halfHeight), "v");
+            return;
+        }
+
         using var shadowPath = Rounded(new Rectangle(rect.Left + 1, rect.Top + 1, rect.Width, rect.Height), 4);
         using var shadow = new SolidBrush(Color.FromArgb(35, 0, 0, 0));
         graphics.FillPath(shadow, shadowPath);
@@ -1754,6 +1790,21 @@ internal sealed class KeyboardPreview : Control
         using var border = new Pen(Color.FromArgb(174, 179, 187));
         graphics.FillPath(fill, path);
         graphics.DrawPath(border, path);
+
+        if (text == "touchid")
+        {
+            var size = Math.Max(12, Math.Min(rect.Width, rect.Height) - 9);
+            var sensor = new Rectangle(rect.Left + (rect.Width - size) / 2, rect.Top + (rect.Height - size) / 2, size, size);
+            using var sensorFill = new LinearGradientBrush(sensor, Color.FromArgb(237, 239, 243), Color.FromArgb(207, 211, 218), LinearGradientMode.Vertical);
+            using var sensorBorder = new Pen(Color.FromArgb(150, 156, 166));
+            graphics.FillEllipse(sensorFill, sensor);
+            graphics.DrawEllipse(sensorBorder, sensor);
+
+            var inner = Rectangle.Inflate(sensor, -Math.Max(3, size / 5), -Math.Max(3, size / 5));
+            using var innerPen = new Pen(Color.FromArgb(120, 132, 141, 154), 1);
+            graphics.DrawEllipse(innerPen, inner);
+            return;
+        }
 
         if (text.Length == 0)
         {
@@ -1766,12 +1817,12 @@ internal sealed class KeyboardPreview : Control
 
     private static KeyboardKey[][] KeyboardRows() =>
     [
-        [Key("esc", 1.1F), Key("F1", 1), Key("F2", 1), Key("F3", 1), Key("F4", 1), Key("F5", 1), Key("F6", 1), Key("F7", 1), Key("F8", 1), Key("F9", 1), Key("F10", 1), Key("F11", 1), Key("F12", 1), Key("pwr", 1.1F)],
+        [Key("esc", 1.1F), Key("F1", 1), Key("F2", 1), Key("F3", 1), Key("F4", 1), Key("F5", 1), Key("F6", 1), Key("F7", 1), Key("F8", 1), Key("F9", 1), Key("F10", 1), Key("F11", 1), Key("F12", 1), Key("touchid", 1.1F)],
         [Key("`", 1), Key("1", 1), Key("2", 1), Key("3", 1), Key("4", 1), Key("5", 1), Key("6", 1), Key("7", 1), Key("8", 1), Key("9", 1), Key("0", 1), Key("-", 1), Key("=", 1), Key("del", 1.6F)],
         [Key("tab", 1.45F), Key("Q", 1), Key("W", 1), Key("E", 1), Key("R", 1), Key("T", 1), Key("Y", 1), Key("U", 1), Key("I", 1), Key("O", 1), Key("P", 1), Key("[", 1), Key("]", 1), Key("\\", 1.15F)],
         [Key("caps", 1.7F), Key("A", 1), Key("S", 1), Key("D", 1), Key("F", 1), Key("G", 1), Key("H", 1), Key("J", 1), Key("K", 1), Key("L", 1), Key(";", 1), Key("'", 1), Key("return", 1.95F)],
         [Key("shift", 2.2F), Key("Z", 1), Key("X", 1), Key("C", 1), Key("V", 1), Key("B", 1), Key("N", 1), Key("M", 1), Key(",", 1), Key(".", 1), Key("/", 1), Key("shift", 2.35F)],
-        [Key("fn", 1), Key("ctrl", 1.22F), Key("opt", 1.22F), Key("cmd", 1.55F), Key("", 5.35F), Key("cmd", 1.55F), Key("opt", 1.22F), Key("<", 1), Key("^", 1), Key("v", 1), Key(">", 1)],
+        [Key("fn", 1), Key("ctrl", 1.22F), Key("opt", 1.22F), Key("cmd", 1.55F), Key("", 5.35F), Key("cmd", 1.55F), Key("opt", 1.22F), Key("<", 1), Key("updown", 1), Key(">", 1)],
     ];
 
     private static KeyboardKey Key(string text, float units)
