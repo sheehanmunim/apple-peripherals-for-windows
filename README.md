@@ -1,57 +1,89 @@
 # Apple Peripherals for Windows
 
-Windows settings app and background bridge for Apple Magic Trackpad multitouch over Bluetooth.
+Native Windows settings app and background bridge for Apple Magic Trackpad multitouch over Bluetooth.
 
-Windows can pair the Magic Trackpad as a Bluetooth HID pointer, but the useful trackpad behavior is often missing: two-finger scroll, tap-to-click, secondary click, pinch zoom, and multi-finger shortcuts. This repo adds a Windows settings app plus a background bridge that reads Apple multitouch HID reports and applies the gestures you configure.
+Windows can pair the Magic Trackpad as a Bluetooth HID pointer, but many of the useful trackpad behaviors are missing. This repo provides a C#/.NET Windows app that enables Apple multitouch mode, reads the trackpad through Windows Raw Input, and applies the gestures you configure.
 
-## What Works
+## Native App
 
-- Detects Apple Magic Trackpad devices exposed through Windows Raw Input.
-- Knows Apple vendor/product IDs for Magic Trackpad, Magic Trackpad 2, and the USB-C Magic Trackpad.
-- Sends the Apple multitouch feature report when the HID collection is openable from user mode.
-- Parses Apple 9-byte multitouch reports.
-- Injects one-finger pointer movement, physical click, tap-to-click, two-finger scroll, horizontal scroll, two-finger secondary click, pinch-to-zoom through Ctrl+wheel, three-finger desktop swipes, and three-finger middle click.
-- Lets you change pointer sensitivity, pointer direction, scroll direction, scroll speed, tap buttons, physical click buttons, pinch settings, swipe thresholds, and swipe keybinds.
-- Installs a Start Menu settings app and a per-user background task.
+- Built with C# on .NET 8 and WinForms.
+- Installs `MagicTrackpad.exe` as a per-user background bridge.
+- Adds Start Menu shortcuts for settings and manual bridge launch.
+- Registers a per-user scheduled task when Windows allows it, and falls back to a Startup shortcut when task registration is blocked.
 - Keeps Bluetooth multitouch mode refreshed after reconnects and wake events.
+- Reloads saved settings while the bridge is running.
 
-## Settings App
+## Controls
 
-Open the settings app from the Start Menu after installing, or run it from the repo:
+The settings app lets you configure:
+
+- Pointer movement, sensitivity, and X/Y direction.
+- Two-finger vertical and horizontal scrolling.
+- Natural or traditional scroll direction.
+- Tap-to-click and one-/two-/three-finger tap actions.
+- Physical click and multi-finger physical click actions.
+- Pinch-to-zoom modifier and sensitivity.
+- Three- and four-finger swipe keybinds.
+- Swipe thresholds, raw report logging, and reconnect refresh interval.
+
+## Build And Test
+
+Requirements:
+
+- Windows 10/11
+- .NET 8 SDK
+
+From the repo root:
 
 ```powershell
-python -m magictrackpad_bridge settings
+dotnet build .\ApplePeripheralsForWindows.sln -c Release
+dotnet run --project .\src\MagicTrackpad.App\MagicTrackpad.App.csproj -c Release -- --self-test
 ```
 
-The app has tabs for:
+The repo also keeps the original parser tests as extra coverage:
 
-- Pointer: enable movement, sensitivity, and X/Y direction.
-- Scroll: natural scrolling, speed, and horizontal scrolling.
-- Clicks: tap-to-click, two-/three-finger tap actions, and physical click actions.
-- Gestures: pinch zoom modifier, swipe thresholds, and three-/four-finger swipe keybinds.
-- Service: automatic multitouch refresh, raw report logging, and bridge controls.
+```powershell
+python -m unittest discover -s tests
+```
 
-## Quick Start
+## Run From Source
+
+```powershell
+dotnet run --project .\src\MagicTrackpad.App\MagicTrackpad.App.csproj -c Release -- --enable
+dotnet run --project .\src\MagicTrackpad.App\MagicTrackpad.App.csproj -c Release -- --bridge
+dotnet run --project .\src\MagicTrackpad.App\MagicTrackpad.App.csproj -c Release -- --settings
+```
+
+Short bridge smoke test:
+
+```powershell
+.\scripts\run.ps1 -DryRun -Seconds 5
+```
+
+## Install
 
 Use PowerShell from the repo root:
 
 ```powershell
-python -m magictrackpad_bridge list
-python -m magictrackpad_bridge enable
-python -m magictrackpad_bridge run
-python -m magictrackpad_bridge settings
-```
-
-Short smoke test:
-
-```powershell
-python -m magictrackpad_bridge -v run --dry-run --seconds 5
-```
-
-Install it at logon:
-
-```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
+```
+
+The installer publishes the native app to:
+
+```text
+%LOCALAPPDATA%\MagicTrackpadBridge\app\MagicTrackpad.exe
+```
+
+It creates or reuses this config file:
+
+```text
+%USERPROFILE%\.magictrackpad-bridge.json
+```
+
+Open settings after install from the Start Menu, or run:
+
+```powershell
+.\scripts\settings.ps1 -Installed
 ```
 
 Uninstall:
@@ -60,35 +92,9 @@ Uninstall:
 powershell -ExecutionPolicy Bypass -File .\scripts\uninstall.ps1
 ```
 
-## Configuration
+## System Design
 
-Create a user config:
-
-```powershell
-python -m magictrackpad_bridge write-config
-```
-
-The default path is:
-
-```text
-%USERPROFILE%\.magictrackpad-bridge.json
-```
-
-Use the settings app for normal changes. `config.example.json` is also available as an editable reference. The most useful options are:
-
-- `pointer_sensitivity`
-- `natural_scroll`
-- `scroll_sensitivity`
-- `pinch_zoom_enabled`
-- `three_finger_swipes_enabled`
-- `gestures.hotkeys`
-- `log_raw_reports`
-
-## Test
-
-```powershell
-python -m unittest discover -s tests
-```
+See [docs/architecture.md](docs/architecture.md). The app is split into configuration, HID device access, Raw Input runtime, gesture translation, input injection, WinForms UI, and self-test layers.
 
 ## License And Attribution
 

@@ -10,6 +10,20 @@ if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
 }
 
+Get-CimInstance Win32_Process |
+    Where-Object {
+        ($_.Name -in @("MagicTrackpad.exe", "python.exe", "pythonw.exe")) -and
+        ($_.CommandLine -like "*MagicTrackpadBridge*" -or $_.CommandLine -like "*magictrackpad_bridge*")
+    } |
+    ForEach-Object {
+        try {
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop
+        }
+        catch {
+            Write-Warning "Could not stop process $($_.ProcessId): $($_.Exception.Message)"
+        }
+    }
+
 if (Test-Path $InstallDir) {
     Remove-Item -LiteralPath $InstallDir -Recurse -Force
 }

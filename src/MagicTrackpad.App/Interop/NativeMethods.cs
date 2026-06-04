@@ -1,0 +1,185 @@
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace MagicTrackpad.Interop;
+
+internal static class NativeMethods
+{
+    public const int RIM_TYPEHID = 2;
+    public const int RID_INPUT = 0x10000003;
+    public const int RIDI_DEVICENAME = 0x20000007;
+    public const int RIDI_DEVICEINFO = 0x2000000B;
+    public const int RIDEV_INPUTSINK = 0x00000100;
+    public const int RIDEV_DEVNOTIFY = 0x00002000;
+    public const int WM_INPUT = 0x00FF;
+    public const int WM_INPUT_DEVICE_CHANGE = 0x00FE;
+
+    public const uint GenericRead = 0x80000000;
+    public const uint GenericWrite = 0x40000000;
+    public const uint FileShareRead = 0x00000001;
+    public const uint FileShareWrite = 0x00000002;
+    public const uint OpenExisting = 3;
+    public const uint FileAttributeNormal = 0x00000080;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint GetRawInputDeviceList(
+        [Out] RawInputDeviceList[]? rawInputDeviceList,
+        ref uint numDevices,
+        uint size);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern uint GetRawInputDeviceInfo(
+        IntPtr device,
+        uint command,
+        StringBuilder? data,
+        ref uint size);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint GetRawInputDeviceInfo(
+        IntPtr device,
+        uint command,
+        IntPtr data,
+        ref uint size);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool RegisterRawInputDevices(
+        RawInputDevice[] rawInputDevices,
+        uint numDevices,
+        uint size);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint GetRawInputData(
+        IntPtr rawInput,
+        uint command,
+        IntPtr data,
+        ref uint size,
+        uint headerSize);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern IntPtr CreateFile(
+        string fileName,
+        uint desiredAccess,
+        uint shareMode,
+        IntPtr securityAttributes,
+        uint creationDisposition,
+        uint flagsAndAttributes,
+        IntPtr templateFile);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool CloseHandle(IntPtr handle);
+
+    [DllImport("hid.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool HidD_SetFeature(IntPtr hidDeviceObject, byte[] reportBuffer, uint reportBufferLength);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint SendInput(uint inputCount, Input[] inputs, int inputSize);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RawInputDeviceList
+    {
+        public IntPtr Device;
+        public uint Type;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RawInputDevice
+    {
+        public ushort UsagePage;
+        public ushort Usage;
+        public uint Flags;
+        public IntPtr Target;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RawInputHeader
+    {
+        public uint Type;
+        public uint Size;
+        public IntPtr Device;
+        public IntPtr WParam;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RidDeviceInfo
+    {
+        public uint CbSize;
+        public uint Type;
+        public RidDeviceInfoUnion Union;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct RidDeviceInfoUnion
+    {
+        [FieldOffset(0)] public RidDeviceInfoMouse Mouse;
+        [FieldOffset(0)] public RidDeviceInfoKeyboard Keyboard;
+        [FieldOffset(0)] public RidDeviceInfoHid Hid;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RidDeviceInfoMouse
+    {
+        public uint Id;
+        public uint NumberOfButtons;
+        public uint SampleRate;
+        public bool HasHorizontalWheel;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RidDeviceInfoKeyboard
+    {
+        public uint Type;
+        public uint SubType;
+        public uint KeyboardMode;
+        public uint NumberOfFunctionKeys;
+        public uint NumberOfIndicators;
+        public uint NumberOfKeysTotal;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RidDeviceInfoHid
+    {
+        public uint VendorId;
+        public uint ProductId;
+        public uint VersionNumber;
+        public ushort UsagePage;
+        public ushort Usage;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Input
+    {
+        public uint Type;
+        public InputUnion Union;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct InputUnion
+    {
+        [FieldOffset(0)] public MouseInput Mouse;
+        [FieldOffset(0)] public KeyboardInput Keyboard;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MouseInput
+    {
+        public int Dx;
+        public int Dy;
+        public uint MouseData;
+        public uint Flags;
+        public uint Time;
+        public UIntPtr ExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KeyboardInput
+    {
+        public ushort Vk;
+        public ushort Scan;
+        public uint Flags;
+        public uint Time;
+        public UIntPtr ExtraInfo;
+    }
+}
+

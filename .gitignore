@@ -9,6 +9,8 @@ __pycache__/
 htmlcov/
 build/
 dist/
+bin/
+obj/
 *.egg-info/
 .venv/
 venv/
@@ -27,4 +29,3 @@ logs/
 .vs/
 .idea/
 .vscode/
-
