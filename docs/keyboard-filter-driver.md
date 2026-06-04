@@ -50,6 +50,32 @@ Verify a signed package before bundling it:
 powershell -ExecutionPolicy Bypass -File .\scripts\verify-keyboard-driver-package.ps1 -ZipPath .\artifacts\keyboard-filter\AppleKeyboardFilterDriver.zip -RequireAllArchitectures -RequireMicrosoftSignature
 ```
 
+## Verify The Live Driver Stack
+
+After installing or reconnecting a Magic Keyboard, check whether Windows actually has the filter in the driver store and bound to the keyboard target:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1
+```
+
+For a gating check:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1 -RequireReady
+```
+
+Use `-RequireMicrosoftSigner` when verifying a public-release machine. A healthy public install should report `Ready: True`; if it reports that the filter is not in the driver store, Globe/Fn cannot be remapped by the app because Windows is still hiding that bit in the stock keyboard stack.
+
+## Local Development Test Signing
+
+For local driver development only, run from elevated PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -EnableTestSigning
+```
+
+The helper creates or reuses a local code-signing certificate, trusts it on the machine, builds and signs the catalog, enables Windows test-signing mode, and installs the filter with `-AllowTestSigned`. Reboot after enabling test-signing and rerun `scripts\check-keyboard-filter-driver.ps1`. This path is deliberately not used by the public setup executable.
+
 ## GitHub Artifact Build
 
 The `keyboard-driver` GitHub Actions workflow builds unsigned AMD64 and ARM64 driver packages on a Windows runner with WDK 26100:

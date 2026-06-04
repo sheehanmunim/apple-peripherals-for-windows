@@ -29,6 +29,14 @@ The workflow downloads the signed zip, verifies the SHA-256 when provided, check
 
 Microsoft's attestation documentation requires a Hardware Developer Program account with an associated certificate, a CAB signed with that certificate, and Partner Center submission. The `keyboard-driver` workflow output is therefore a submission input, not a driver that normal Windows can load.
 
+After installing a full release on a test machine with a Magic Keyboard connected, verify the live binding:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1 -RequireReady -RequireMicrosoftSigner
+```
+
+The check must report `Ready: True` before the release can claim Globe/Fn remapping works.
+
 ## App-Only Release
 
 For a release that updates the app and bundles only the signed Precision Touchpad driver, run the `release` workflow with:

@@ -86,6 +86,12 @@ HID diagnostics:
 dotnet run --project .\src\MagicTrackpad.App\MagicTrackpad.App.csproj -c Release -- --diagnose-hid --seconds 10 --diagnostics-path .\hid-diagnostics.json
 ```
 
+Magic Keyboard Globe/Fn driver health check:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1
+```
+
 ## Install
 
 Download `ApplePeripheralsSetup-win-x64.exe` from the latest GitHub release and run it. The setup app is self-contained: it bundles the app runtime, settings app, background bridge, and Microsoft-signed Magic Trackpad Precision Touchpad driver package. It starts the bridge for the current session, creates Start Menu shortcuts, and registers Apple Peripherals for Windows in Windows Apps / Control Panel for uninstall.
@@ -199,6 +205,20 @@ Install a signed package from an elevated PowerShell window:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver.ps1
 ```
+
+Check whether Windows actually bound the filter to the keyboard:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\check-keyboard-filter-driver.ps1 -RequireReady
+```
+
+For local driver development only, use the test-signing helper from elevated PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -EnableTestSigning
+```
+
+That helper creates a local test code-signing certificate, trusts it for this machine, signs the local driver catalog, enables Windows test-signing mode, and installs the filter. It is not a public-user install path; reboot after enabling test-signing, then rerun the health check.
 
 Public installers must bundle a trusted signed keyboard driver package. See [docs/keyboard-filter-driver.md](docs/keyboard-filter-driver.md) and [docs/release.md](docs/release.md).
 
