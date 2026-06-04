@@ -114,7 +114,8 @@ jobs:
             "- Installs the native settings app and background bridge.",
             "- Requests Administrator approval because the installer adds bundled Windows drivers.",
             "- Bundles the Microsoft-signed Magic Trackpad Precision Touchpad driver.",
-            "- Includes current Magic Keyboard modifier remapping, F-key mappings, and settings UI."
+            "- Includes current Magic Keyboard modifier remapping, F-key mappings, and settings UI.",
+            "- Adds a Magic Keyboard driver repair action from the keyboard status panel."
           )
           if ($hasKeyboardDriver) {
             $notes += "- Bundles a trusted signed Apple Keyboard Filter driver so Globe/Fn can map through the app setting."

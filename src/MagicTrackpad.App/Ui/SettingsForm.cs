@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
@@ -979,6 +980,75 @@ public sealed class SettingsForm : Form
             BackColor = Color.Transparent,
         });
         parent.Controls.Add(driverRow);
+
+        if (!status.Ready)
+        {
+            var actionRow = Row(42, contentWidth - 8);
+            actionRow.Controls.Add(ThemedLabel("", 205));
+            var repair = ThemedButton("Repair drivers", Math.Min(180, Math.Max(150, contentWidth - 225)), 32);
+            repair.Click += (_, _) => LaunchDriverRepair();
+            actionRow.Controls.Add(repair);
+            parent.Controls.Add(actionRow);
+        }
+    }
+
+    private void LaunchDriverRepair()
+    {
+        var setupPath = InstalledSetupPath();
+        if (!File.Exists(setupPath))
+        {
+            MessageBox.Show(
+                this,
+                "ApplePeripheralsSetup.exe was not found. Run the latest installer again from GitHub Releases.",
+                "Apple Peripherals",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = setupPath,
+                Arguments = "/install /driver",
+                WorkingDirectory = Path.GetDirectoryName(setupPath) ?? Environment.CurrentDirectory,
+                UseShellExecute = true,
+                Verb = "runas",
+            });
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            MessageBox.Show(
+                this,
+                "Administrator approval was canceled, so Windows did not install or repair the drivers.",
+                "Apple Peripherals",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Apple Peripherals", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private static string InstalledSetupPath()
+    {
+        var appDirectory = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var appParent = Directory.GetParent(appDirectory);
+        if (appParent != null)
+        {
+            var siblingSetup = Path.Combine(appParent.FullName, "ApplePeripheralsSetup.exe");
+            if (File.Exists(siblingSetup))
+            {
+                return siblingSetup;
+            }
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ApplePeripheralsForWindows",
+            "ApplePeripheralsSetup.exe");
     }
 
     [DllImport("dwmapi.dll")]
