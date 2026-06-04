@@ -17,6 +17,7 @@ internal static class SelfTests
             TestBatteryReports();
             TestGestures();
             TestConfigRoundTrip();
+            TestConfigReloadSignal();
             return 0;
         }
         catch
@@ -97,6 +98,7 @@ internal static class SelfTests
     {
         var path = Path.Combine(Path.GetTempPath(), "magic-trackpad-native-self-test.json");
         var config = new AppConfig();
+        Require(config.Keyboard.FnGlobe == "Ctrl");
         config.Gestures.PointerSensitivity = 0.73;
         config.Gestures.SwapLeftRightButtons = true;
         config.Keyboard.FKeyMode = "custom";
@@ -110,6 +112,19 @@ internal static class SelfTests
         Require(loaded.Keyboard.FKeyMode == "custom");
         Require(loaded.Keyboard.F1 == "Win+H");
         Require(loaded.Keyboard.F13 == "Ctrl+Alt+Delete");
+
+        File.WriteAllText(path, """{"keyboard":{"fn_globe":"Win+Period"}}""");
+        loaded = ConfigStore.Load(path);
+        File.Delete(path);
+        Require(loaded.Keyboard.FnGlobe == "Ctrl");
+    }
+
+    private static void TestConfigReloadSignal()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"magic-trackpad-native-signal-{Guid.NewGuid():N}.json");
+        using var signal = ConfigReloadSignal.Create(path);
+        ConfigReloadSignal.Notify(path);
+        Require(signal.WaitOne(1000));
     }
 
     private static TrackpadFrame Frame(IReadOnlyList<Touch> touches) => new(0x31, 0, touches, []);

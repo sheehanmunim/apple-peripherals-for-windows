@@ -15,12 +15,15 @@ internal sealed class BridgeApplicationContext : ApplicationContext
     private readonly KeyboardRemapper keyboard;
     private readonly System.Windows.Forms.Timer reenableTimer = new();
     private readonly System.Windows.Forms.Timer reloadTimer = new();
+    private readonly EventWaitHandle reloadSignal;
+    private readonly RegisteredWaitHandle reloadRegistration;
     private readonly System.Windows.Forms.Timer? stopTimer;
     private readonly NotifyIcon notifyIcon;
     private readonly HashSet<string> announced = [];
     private readonly HashSet<string> enabled = [];
     private readonly RawInputWindow window;
     private DateTime lastConfigWrite;
+    private volatile bool reloadRequested;
 
     public BridgeApplicationContext(string configPath, bool dryRun, double? seconds)
     {
@@ -30,6 +33,13 @@ internal sealed class BridgeApplicationContext : ApplicationContext
         injector = dryRun ? new DryRunInputInjector() : new Win32InputInjector();
         engine = new GestureEngine(injector, config.Gestures);
         keyboard = new KeyboardRemapper(injector, config.Keyboard);
+        reloadSignal = ConfigReloadSignal.Create(configPath);
+        reloadRegistration = ThreadPool.RegisterWaitForSingleObject(
+            reloadSignal,
+            (_, _) => reloadRequested = true,
+            null,
+            -1,
+            executeOnlyOnce: false);
 
         notifyIcon = new NotifyIcon
         {
@@ -44,7 +54,7 @@ internal sealed class BridgeApplicationContext : ApplicationContext
         reenableTimer.Tick += (_, _) => ReenableTrackpads();
         reenableTimer.Start();
 
-        reloadTimer.Interval = 2000;
+        reloadTimer.Interval = 500;
         reloadTimer.Tick += (_, _) => ReloadConfigIfChanged();
         reloadTimer.Start();
 
@@ -79,7 +89,14 @@ internal sealed class BridgeApplicationContext : ApplicationContext
     private void ReloadConfigIfChanged()
     {
         var writeTime = ConfigLastWrite();
-        if (writeTime > lastConfigWrite)
+        if (reloadRequested)
+        {
+            reloadRequested = false;
+            ReloadConfig(force: true);
+            return;
+        }
+
+        if (writeTime != lastConfigWrite)
         {
             ReloadConfig(force: true);
         }
@@ -167,6 +184,8 @@ internal sealed class BridgeApplicationContext : ApplicationContext
             stopTimer?.Dispose();
             reenableTimer.Dispose();
             reloadTimer.Dispose();
+            reloadRegistration.Unregister(null);
+            reloadSignal.Dispose();
             keyboard.Dispose();
             window.Dispose();
             notifyIcon.Visible = false;

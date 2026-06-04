@@ -87,7 +87,7 @@ public sealed class KeyboardConfig
     public string LeftOption { get; set; } = "Alt";
     public string RightOption { get; set; } = "Alt";
     public string CapsLock { get; set; } = "CapsLock";
-    public string FnGlobe { get; set; } = "Win+Period";
+    public string FnGlobe { get; set; } = "Ctrl";
     public string F1 { get; set; } = "BrightnessDown";
     public string F2 { get; set; } = "BrightnessUp";
     public string F3 { get; set; } = "Win+Tab";
@@ -110,6 +110,11 @@ public sealed class KeyboardConfig
 
     public void ApplyMacDefaultsIfOldConfig()
     {
+        if (string.Equals(FnGlobe, "Win+Period", StringComparison.OrdinalIgnoreCase))
+        {
+            FnGlobe = "Ctrl";
+        }
+
         if (!IsStandardUnchangedFRow())
         {
             return;

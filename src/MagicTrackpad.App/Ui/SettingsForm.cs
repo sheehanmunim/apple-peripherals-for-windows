@@ -958,6 +958,7 @@ public sealed class SettingsForm : Form
             ReadValues();
             ValidateHotkeys();
             ConfigStore.Save(configPath, config);
+            ConfigReloadSignal.Notify(configPath);
             autoSaveErrorShown = false;
             return true;
         }
