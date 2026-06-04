@@ -14,13 +14,13 @@ public sealed class SettingsForm : Form
     private const int KeyboardRightWidth = 500;
     private const int TrackpadPageGutter = 36;
     private const int KeyboardPageGutter = 36;
-    private static readonly Color Shell = Color.FromArgb(14, 14, 14);
-    private static readonly Color Surface = Color.FromArgb(24, 24, 24);
-    private static readonly Color SurfaceAlt = Color.FromArgb(34, 34, 34);
-    private static readonly Color Stroke = Color.FromArgb(58, 58, 58);
-    private static readonly Color TextMain = Color.FromArgb(235, 235, 235);
-    private static readonly Color TextMuted = Color.FromArgb(150, 150, 150);
-    private static readonly Color Accent = Color.FromArgb(68, 214, 44);
+    private static readonly Color Shell = ThemePalette.Shell;
+    private static readonly Color Surface = ThemePalette.Surface;
+    private static readonly Color SurfaceAlt = ThemePalette.SurfaceAlt;
+    private static readonly Color Stroke = ThemePalette.Stroke;
+    private static readonly Color TextMain = ThemePalette.TextMain;
+    private static readonly Color TextMuted = ThemePalette.TextMuted;
+    private static readonly Color Accent = ThemePalette.Accent;
 
     private readonly string configPath;
     private readonly Dictionary<string, Control> controlsByName = [];
@@ -42,7 +42,7 @@ public sealed class SettingsForm : Form
         ForeColor = TextMain;
 
         Build();
-        ApplySynapseTheme(this);
+        ApplyPeripheralTheme(this);
         LoadValues();
     }
 
@@ -637,7 +637,7 @@ public sealed class SettingsForm : Form
         FlatStyle = FlatStyle.Flat,
     };
 
-    private static void ApplySynapseTheme(Control root)
+    private static void ApplyPeripheralTheme(Control root)
     {
         foreach (Control child in root.Controls)
         {
@@ -675,17 +675,18 @@ public sealed class SettingsForm : Form
                 button.ForeColor = TextMain;
                 button.FlatStyle = FlatStyle.Flat;
                 button.FlatAppearance.BorderColor = Stroke;
-                button.FlatAppearance.MouseOverBackColor = Color.FromArgb(38, 78, 34);
+                button.FlatAppearance.MouseOverBackColor = ThemePalette.ControlHover;
+                button.FlatAppearance.MouseDownBackColor = ThemePalette.ControlPressed;
             }
             else if (child is TextBox text)
             {
-                text.BackColor = Color.FromArgb(10, 10, 10);
+                text.BackColor = ThemePalette.Control;
                 text.ForeColor = TextMain;
                 text.BorderStyle = BorderStyle.FixedSingle;
             }
             else if (child is ComboBox combo)
             {
-                combo.BackColor = Color.FromArgb(10, 10, 10);
+                combo.BackColor = ThemePalette.Control;
                 combo.ForeColor = TextMain;
                 combo.FlatStyle = FlatStyle.Flat;
             }
@@ -695,7 +696,7 @@ public sealed class SettingsForm : Form
                 track.ForeColor = TextMain;
             }
 
-            ApplySynapseTheme(child);
+            ApplyPeripheralTheme(child);
         }
     }
 
@@ -727,7 +728,7 @@ public sealed class SettingsForm : Form
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
             Width = Math.Min(comboWidth, Math.Max(120, contentWidth - 235)),
-            BackColor = Color.FromArgb(10, 10, 10),
+            BackColor = ThemePalette.Control,
             ForeColor = TextMain,
             FlatStyle = FlatStyle.Flat,
         };
@@ -746,7 +747,7 @@ public sealed class SettingsForm : Form
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
             Width = Math.Min(comboWidth, Math.Max(160, contentWidth - 145)),
-            BackColor = Color.FromArgb(10, 10, 10),
+            BackColor = ThemePalette.Control,
             ForeColor = TextMain,
             FlatStyle = FlatStyle.Flat,
         };
@@ -761,7 +762,7 @@ public sealed class SettingsForm : Form
         var contentWidth = ContentWidth(parent);
         var row = Row(width: contentWidth - 8);
         row.Controls.Add(ThemedLabel(label, 115));
-        var textBox = new TextBox { Width = Math.Max(120, contentWidth - 195), BackColor = Color.FromArgb(10, 10, 10), ForeColor = TextMain, BorderStyle = BorderStyle.FixedSingle };
+        var textBox = new TextBox { Width = Math.Max(120, contentWidth - 195), BackColor = ThemePalette.Control, ForeColor = TextMain, BorderStyle = BorderStyle.FixedSingle };
         controlsByName[name] = textBox;
         row.Controls.Add(textBox);
         var record = ThemedButton("Record", 64, 28);
@@ -1487,6 +1488,24 @@ internal sealed record ActionOption(string Label, string Value)
     public override string ToString() => Label;
 }
 
+internal static class ThemePalette
+{
+    public static readonly Color Shell = Color.FromArgb(25, 26, 30);
+    public static readonly Color Surface = Color.FromArgb(34, 35, 40);
+    public static readonly Color SurfaceAlt = Color.FromArgb(44, 46, 52);
+    public static readonly Color SurfaceRaised = Color.FromArgb(54, 56, 63);
+    public static readonly Color Control = Color.FromArgb(19, 20, 24);
+    public static readonly Color ControlHover = Color.FromArgb(45, 57, 76);
+    public static readonly Color ControlPressed = Color.FromArgb(35, 86, 139);
+    public static readonly Color Stroke = Color.FromArgb(75, 78, 88);
+    public static readonly Color StrokeSoft = Color.FromArgb(54, 57, 65);
+    public static readonly Color TextMain = Color.FromArgb(245, 245, 247);
+    public static readonly Color TextMuted = Color.FromArgb(166, 169, 178);
+    public static readonly Color Accent = Color.FromArgb(10, 132, 255);
+    public static readonly Color AccentDim = Color.FromArgb(54, 116, 190);
+    public static readonly Color AccentSurface = Color.FromArgb(31, 50, 76);
+}
+
 internal enum DeviceKind
 {
     Trackpad,
@@ -1512,7 +1531,7 @@ internal sealed class ThemedGroupBox : GroupBox
         var titleRect = new Rectangle(16, 0, titleSize.Width + 12, Math.Max(22, titleSize.Height + 2));
         var top = titleRect.Height / 2;
 
-        using var border = new Pen(Color.FromArgb(58, 58, 58));
+        using var border = new Pen(ThemePalette.StrokeSoft);
         e.Graphics.DrawLine(border, 0, top, Math.Max(0, titleRect.Left - 6), top);
         e.Graphics.DrawLine(border, titleRect.Right + 6, top, Width - 1, top);
         e.Graphics.DrawLine(border, 0, top, 0, Height - 1);
@@ -1532,8 +1551,8 @@ internal sealed class LevelMeter : Control
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         var bounds = new Rectangle(0, 0, Width - 1, Height - 1);
-        using var background = new SolidBrush(Color.FromArgb(12, 12, 12));
-        using var border = new Pen(Color.FromArgb(58, 58, 58));
+        using var background = new SolidBrush(ThemePalette.Control);
+        using var border = new Pen(ThemePalette.StrokeSoft);
         e.Graphics.FillRectangle(background, bounds);
         e.Graphics.DrawRectangle(border, bounds);
 
@@ -1542,11 +1561,11 @@ internal sealed class LevelMeter : Control
             : 0;
         if (fillWidth > 0)
         {
-            using var fill = new LinearGradientBrush(new Rectangle(1, 1, fillWidth, Height - 2), Color.FromArgb(68, 214, 44), Color.FromArgb(28, 132, 30), LinearGradientMode.Horizontal);
+            using var fill = new LinearGradientBrush(new Rectangle(1, 1, fillWidth, Height - 2), ThemePalette.Accent, ThemePalette.AccentDim, LinearGradientMode.Horizontal);
             e.Graphics.FillRectangle(fill, 1, 1, fillWidth, Height - 2);
         }
 
-        TextRenderer.DrawText(e.Graphics, Value is int percent ? $"{percent}%" : "--", Font, bounds, Color.FromArgb(235, 235, 235), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        TextRenderer.DrawText(e.Graphics, Value is int percent ? $"{percent}%" : "--", Font, bounds, ThemePalette.TextMain, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
     }
 }
 
@@ -1557,18 +1576,18 @@ internal sealed class TrackpadPreview : Control
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         var body = new Rectangle(24, 18, Width - 48, Height - 54);
-        using var shadow = new SolidBrush(Color.FromArgb(120, 0, 0, 0));
+        using var shadow = new SolidBrush(Color.FromArgb(90, 0, 0, 0));
         e.Graphics.FillRectangle(shadow, body.X + 4, body.Y + 6, body.Width, body.Height);
         using var path = Rounded(body, 16);
-        using var fill = new LinearGradientBrush(body, Color.FromArgb(54, 54, 54), Color.FromArgb(20, 20, 20), LinearGradientMode.Vertical);
-        using var border = new Pen(Color.FromArgb(86, 86, 86));
+        using var fill = new LinearGradientBrush(body, Color.FromArgb(82, 84, 90), Color.FromArgb(37, 39, 45), LinearGradientMode.Vertical);
+        using var border = new Pen(Color.FromArgb(104, 108, 118));
         e.Graphics.FillPath(fill, path);
         e.Graphics.DrawPath(border, path);
-        using var accent = new Pen(Color.FromArgb(68, 214, 44), 2);
+        using var accent = new Pen(ThemePalette.Accent, 2);
         e.Graphics.DrawLine(accent, body.Left + 22, body.Top + 18, body.Right - 22, body.Top + 18);
         var buttonHeight = 54;
         var buttonY = body.Bottom - buttonHeight;
-        using var separator = new Pen(Color.FromArgb(78, 78, 78));
+        using var separator = new Pen(Color.FromArgb(92, 95, 104));
         e.Graphics.DrawLine(separator, body.Left, buttonY, body.Right, buttonY);
         e.Graphics.DrawLine(separator, body.Left + body.Width / 3, buttonY, body.Left + body.Width / 3, body.Bottom);
         e.Graphics.DrawLine(separator, body.Left + body.Width * 2 / 3, buttonY, body.Left + body.Width * 2 / 3, body.Bottom);
@@ -1579,7 +1598,7 @@ internal sealed class TrackpadPreview : Control
 
     private static void DrawCentered(Graphics graphics, string text, Rectangle bounds)
     {
-        TextRenderer.DrawText(graphics, text, new Font("Segoe UI", 10F), bounds, Color.FromArgb(180, 180, 180), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        TextRenderer.DrawText(graphics, text, new Font("Segoe UI", 10F), bounds, ThemePalette.TextMuted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
     }
 
     private static GraphicsPath Rounded(Rectangle rect, int radius)
@@ -1603,8 +1622,8 @@ internal sealed class KeyboardPreview : Control
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         var keyboard = new Rectangle(26, 28, Width - 52, Height - 64);
         using var bodyPath = Rounded(keyboard, 12);
-        using var body = new SolidBrush(Color.FromArgb(24, 24, 24));
-        using var border = new Pen(Color.FromArgb(86, 86, 86));
+        using var body = new SolidBrush(ThemePalette.SurfaceAlt);
+        using var border = new Pen(Color.FromArgb(104, 108, 118));
         e.Graphics.FillPath(body, bodyPath);
         e.Graphics.DrawPath(border, bodyPath);
 
@@ -1646,11 +1665,11 @@ internal sealed class KeyboardPreview : Control
     {
         using var path = Rounded(rect, 4);
         var isModifier = text is "control" or "option" or "command" or "fn" or "caps" or "shift";
-        using var fill = new SolidBrush(isModifier ? Color.FromArgb(32, 58, 30) : Color.FromArgb(44, 44, 44));
-        using var border = new Pen(isModifier ? Color.FromArgb(68, 214, 44) : Color.FromArgb(86, 86, 86));
+        using var fill = new SolidBrush(isModifier ? ThemePalette.AccentSurface : Color.FromArgb(60, 62, 69));
+        using var border = new Pen(isModifier ? ThemePalette.Accent : Color.FromArgb(104, 108, 118));
         graphics.FillPath(fill, path);
         graphics.DrawPath(border, path);
-        TextRenderer.DrawText(graphics, text, new Font("Segoe UI", 7F), rect, Color.FromArgb(235, 235, 235), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        TextRenderer.DrawText(graphics, text, new Font("Segoe UI", 7F), rect, ThemePalette.TextMain, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
     }
 
     private static GraphicsPath Rounded(Rectangle rect, int radius)
