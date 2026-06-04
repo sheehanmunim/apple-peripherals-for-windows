@@ -70,13 +70,20 @@ if (Test-Path $controlPanel) {
 Write-Host "Installing $architecture Precision Touchpad driver..."
 $pnputil = Join-Path $env:SystemRoot "System32\pnputil.exe"
 $process = Start-Process -FilePath $pnputil -ArgumentList @("/add-driver", "`"$infPath`"", "/install") -Wait -PassThru -NoNewWindow
-if ($process.ExitCode -ne 0) {
+if ($process.ExitCode -notin @(0, 3010)) {
     throw "pnputil failed with exit code $($process.ExitCode)."
 }
+
+$rebootRequired = $process.ExitCode -eq 3010
 
 if (!$KeepPackage -and (Test-Path $zipPath)) {
     Remove-Item -LiteralPath $zipPath -Force
 }
 
 Write-Host "Installed Magic Trackpad Precision Touchpad driver."
-Write-Host "If the trackpad still behaves as a basic mouse, disconnect/reconnect it or reboot Windows."
+if ($rebootRequired) {
+    Write-Warning "Windows reported that a reboot is required to finish binding the Precision Touchpad driver."
+}
+else {
+    Write-Host "If the trackpad still behaves as a basic mouse, disconnect/reconnect it or reboot Windows."
+}
