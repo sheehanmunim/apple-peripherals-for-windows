@@ -112,6 +112,7 @@ jobs:
             "Apple Peripherals for Windows $env:RELEASE_TAG",
             "",
             "- Installs the native settings app and background bridge.",
+            "- Requests Administrator approval because the installer adds bundled Windows drivers.",
             "- Bundles the Microsoft-signed Magic Trackpad Precision Touchpad driver.",
             "- Includes current Magic Keyboard modifier remapping, F-key mappings, and settings UI."
           )
