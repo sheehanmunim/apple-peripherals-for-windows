@@ -25,12 +25,22 @@ public sealed class SettingsForm : Form
     private readonly string configPath;
     private readonly Dictionary<string, Control> controlsByName = [];
     private readonly List<Action> layoutSyncs = [];
+    private readonly System.Windows.Forms.Timer autoSaveTimer = new();
     private AppConfig config;
+    private bool loadingValues;
+    private bool autoSaveErrorShown;
 
     public SettingsForm(string configPath)
     {
         this.configPath = configPath;
         config = ConfigStore.Load(configPath);
+        autoSaveTimer.Interval = 650;
+        autoSaveTimer.Tick += (_, _) =>
+        {
+            autoSaveTimer.Stop();
+            SaveNow();
+        };
+
         Text = "Apple Peripherals for Windows";
         Width = 1520;
         Height = 920;
@@ -44,6 +54,17 @@ public sealed class SettingsForm : Form
         Build();
         ApplyPeripheralTheme(this);
         LoadValues();
+        WireAutoSave();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            autoSaveTimer.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -63,6 +84,13 @@ public sealed class SettingsForm : Form
     {
         base.OnResize(e);
         SyncLayouts();
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        autoSaveTimer.Stop();
+        SaveNow();
+        base.OnFormClosing(e);
     }
 
     private void TryUseDarkTitleBar()
@@ -92,13 +120,12 @@ public sealed class SettingsForm : Form
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            RowCount = 2,
+            RowCount = 1,
             ColumnCount = 1,
             Padding = new Padding(8),
             BackColor = Shell,
         };
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         Controls.Add(root);
 
         var tabs = new TabControl
@@ -134,20 +161,6 @@ public sealed class SettingsForm : Form
             }
             tabs.TabPages.Add(page);
         }
-
-        var actions = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.RightToLeft,
-            AutoSize = true,
-            Padding = new Padding(0, 8, 0, 0),
-            BackColor = Shell,
-        };
-        root.Controls.Add(actions, 0, 1);
-        AddActionButton(actions, "Save", () => Save());
-        AddActionButton(actions, "Save and Run", () => { if (Save(false)) StartBridge(); }, 120);
-        AddActionButton(actions, "Reset", () => { config = new AppConfig(); LoadValues(); }, 90);
-        AddActionButton(actions, "Open Config", OpenConfigFolder, 110);
     }
 
     private void BuildTrackpadPage(TabPage page, DeviceTabInfo device)
@@ -824,102 +837,138 @@ public sealed class SettingsForm : Form
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int attributeValue, int attributeSize);
 
-    private static void AddActionButton(FlowLayoutPanel parent, string text, Action action, int width = 90)
+    private void WireAutoSave()
     {
-        var button = ThemedButton(text, width, 32);
-        button.Click += (_, _) => action();
-        parent.Controls.Add(button);
+        foreach (var control in controlsByName.Values)
+        {
+            switch (control)
+            {
+                case CheckBox box:
+                    box.CheckedChanged += (_, _) => ScheduleAutoSave();
+                    break;
+                case ComboBox combo:
+                    combo.SelectedIndexChanged += (_, _) => ScheduleAutoSave();
+                    break;
+                case TrackBar slider:
+                    slider.ValueChanged += (_, _) => ScheduleAutoSave();
+                    break;
+                case TextBox text:
+                    text.TextChanged += (_, _) => ScheduleAutoSave();
+                    break;
+            }
+        }
+    }
+
+    private void ScheduleAutoSave()
+    {
+        if (loadingValues)
+        {
+            return;
+        }
+
+        autoSaveTimer.Stop();
+        autoSaveTimer.Start();
     }
 
     private void LoadValues()
     {
-        Set("PointerEnabled", config.Gestures.PointerEnabled);
-        Set("PointerSensitivity", Scale(config.Gestures.PointerSensitivity, 100));
-        Set("InvertPointerX", config.Gestures.InvertPointerX);
-        Set("InvertPointerY", config.Gestures.InvertPointerY);
-        Set("ScrollEnabled", config.Gestures.ScrollEnabled);
-        Set("NaturalScroll", config.Gestures.NaturalScroll);
-        Set("ScrollSensitivity", Scale(config.Gestures.ScrollSensitivity, 100));
-        Set("NoHorizontalScroll", !config.Gestures.HorizontalScrollEnabled);
-        Set("OneFingerTap", config.Gestures.TapToClick && config.Gestures.OneFingerTapButton != "none");
-        Set("TwoFingerTap", config.Gestures.TapToClick && config.Gestures.TwoFingerTapButton != "none");
-        Set("ThreeFingerTap", config.Gestures.ThreeFingerMiddleClick && config.Gestures.ThreeFingerTapButton != "none");
-        Set("IgnorePhysicalClick", config.Gestures.PhysicalClickButton == "none");
-        Set("PhysicalClickButton", config.Gestures.PhysicalClickButton);
-        Set("MultiFingerPhysicalClickButton", config.Gestures.MultiFingerPhysicalClickButton);
-        Set("OneFingerTapButton", config.Gestures.OneFingerTapButton);
-        Set("TwoFingerTapButton", config.Gestures.TwoFingerTapButton);
-        Set("ThreeFingerTapButton", config.Gestures.ThreeFingerTapButton);
-        Set("TapMaxSeconds", Scale(config.Gestures.TapMaxSeconds, 100));
-        Set("TapMaxDistance", (int)Math.Round(config.Gestures.TapMaxDistance));
-        Set("PinchZoomEnabled", config.Gestures.PinchZoomEnabled);
-        Set("PinchSensitivity", Scale(config.Gestures.PinchSensitivity, 100));
-        Set("SmartZoomEnabled", config.Gestures.SmartZoomEnabled);
-        Set("RotateEnabled", config.Gestures.RotateEnabled);
-        Set("TwoFingerSwipePagesEnabled", config.Gestures.TwoFingerSwipePagesEnabled);
-        Set("FourFingerPinchEnabled", config.Gestures.FourFingerPinchEnabled);
-        Set("FourFingerTapEnabled", config.Gestures.FourFingerTapEnabled);
-        Set("ThreeFingerSwipesEnabled", config.Gestures.ThreeFingerSwipesEnabled);
-        Set("SwipeThreshold", (int)Math.Round(config.Gestures.SwipeThreshold));
-        Set("SwipeVerticalThreshold", (int)Math.Round(config.Gestures.SwipeVerticalThreshold));
-        Set("SwapLeftRightButtons", config.Gestures.SwapLeftRightButtons);
-        Set("TwoFingerSwipeLeft", config.Gestures.Hotkeys.TwoFingerSwipeLeft);
-        Set("TwoFingerSwipeRight", config.Gestures.Hotkeys.TwoFingerSwipeRight);
-        Set("SmartZoomIn", config.Gestures.Hotkeys.SmartZoomIn);
-        Set("SmartZoomOut", config.Gestures.Hotkeys.SmartZoomOut);
-        Set("RotateClockwise", config.Gestures.Hotkeys.RotateClockwise);
-        Set("RotateCounterClockwise", config.Gestures.Hotkeys.RotateCounterClockwise);
-        Set("FourFingerPinchIn", config.Gestures.Hotkeys.FourFingerPinchIn);
-        Set("FourFingerSpread", config.Gestures.Hotkeys.FourFingerSpread);
-        Set("FourFingerTap", config.Gestures.Hotkeys.FourFingerTap);
-        Set("ThreeFingerTapHotkey", config.Gestures.Hotkeys.ThreeFingerTap);
-        Set("ThreeFingerSwipeLeft", config.Gestures.Hotkeys.ThreeFingerSwipeLeft);
-        Set("ThreeFingerSwipeRight", config.Gestures.Hotkeys.ThreeFingerSwipeRight);
-        Set("ThreeFingerSwipeUp", config.Gestures.Hotkeys.ThreeFingerSwipeUp);
-        Set("ThreeFingerSwipeDown", config.Gestures.Hotkeys.ThreeFingerSwipeDown);
-        Set("FourFingerSwipeLeft", config.Gestures.Hotkeys.FourFingerSwipeLeft);
-        Set("FourFingerSwipeRight", config.Gestures.Hotkeys.FourFingerSwipeRight);
-        Set("FourFingerSwipeUp", config.Gestures.Hotkeys.FourFingerSwipeUp);
-        Set("FourFingerSwipeDown", config.Gestures.Hotkeys.FourFingerSwipeDown);
-        Set("LogRawReports", config.LogRawReports);
+        loadingValues = true;
+        try
+        {
+            Set("PointerEnabled", config.Gestures.PointerEnabled);
+            Set("PointerSensitivity", Scale(config.Gestures.PointerSensitivity, 100));
+            Set("InvertPointerX", config.Gestures.InvertPointerX);
+            Set("InvertPointerY", config.Gestures.InvertPointerY);
+            Set("ScrollEnabled", config.Gestures.ScrollEnabled);
+            Set("NaturalScroll", config.Gestures.NaturalScroll);
+            Set("ScrollSensitivity", Scale(config.Gestures.ScrollSensitivity, 100));
+            Set("NoHorizontalScroll", !config.Gestures.HorizontalScrollEnabled);
+            Set("OneFingerTap", config.Gestures.TapToClick && config.Gestures.OneFingerTapButton != "none");
+            Set("TwoFingerTap", config.Gestures.TapToClick && config.Gestures.TwoFingerTapButton != "none");
+            Set("ThreeFingerTap", config.Gestures.ThreeFingerMiddleClick && config.Gestures.ThreeFingerTapButton != "none");
+            Set("IgnorePhysicalClick", config.Gestures.PhysicalClickButton == "none");
+            Set("PhysicalClickButton", config.Gestures.PhysicalClickButton);
+            Set("MultiFingerPhysicalClickButton", config.Gestures.MultiFingerPhysicalClickButton);
+            Set("OneFingerTapButton", config.Gestures.OneFingerTapButton);
+            Set("TwoFingerTapButton", config.Gestures.TwoFingerTapButton);
+            Set("ThreeFingerTapButton", config.Gestures.ThreeFingerTapButton);
+            Set("TapMaxSeconds", Scale(config.Gestures.TapMaxSeconds, 100));
+            Set("TapMaxDistance", (int)Math.Round(config.Gestures.TapMaxDistance));
+            Set("PinchZoomEnabled", config.Gestures.PinchZoomEnabled);
+            Set("PinchSensitivity", Scale(config.Gestures.PinchSensitivity, 100));
+            Set("SmartZoomEnabled", config.Gestures.SmartZoomEnabled);
+            Set("RotateEnabled", config.Gestures.RotateEnabled);
+            Set("TwoFingerSwipePagesEnabled", config.Gestures.TwoFingerSwipePagesEnabled);
+            Set("FourFingerPinchEnabled", config.Gestures.FourFingerPinchEnabled);
+            Set("FourFingerTapEnabled", config.Gestures.FourFingerTapEnabled);
+            Set("ThreeFingerSwipesEnabled", config.Gestures.ThreeFingerSwipesEnabled);
+            Set("SwipeThreshold", (int)Math.Round(config.Gestures.SwipeThreshold));
+            Set("SwipeVerticalThreshold", (int)Math.Round(config.Gestures.SwipeVerticalThreshold));
+            Set("SwapLeftRightButtons", config.Gestures.SwapLeftRightButtons);
+            Set("TwoFingerSwipeLeft", config.Gestures.Hotkeys.TwoFingerSwipeLeft);
+            Set("TwoFingerSwipeRight", config.Gestures.Hotkeys.TwoFingerSwipeRight);
+            Set("SmartZoomIn", config.Gestures.Hotkeys.SmartZoomIn);
+            Set("SmartZoomOut", config.Gestures.Hotkeys.SmartZoomOut);
+            Set("RotateClockwise", config.Gestures.Hotkeys.RotateClockwise);
+            Set("RotateCounterClockwise", config.Gestures.Hotkeys.RotateCounterClockwise);
+            Set("FourFingerPinchIn", config.Gestures.Hotkeys.FourFingerPinchIn);
+            Set("FourFingerSpread", config.Gestures.Hotkeys.FourFingerSpread);
+            Set("FourFingerTap", config.Gestures.Hotkeys.FourFingerTap);
+            Set("ThreeFingerTapHotkey", config.Gestures.Hotkeys.ThreeFingerTap);
+            Set("ThreeFingerSwipeLeft", config.Gestures.Hotkeys.ThreeFingerSwipeLeft);
+            Set("ThreeFingerSwipeRight", config.Gestures.Hotkeys.ThreeFingerSwipeRight);
+            Set("ThreeFingerSwipeUp", config.Gestures.Hotkeys.ThreeFingerSwipeUp);
+            Set("ThreeFingerSwipeDown", config.Gestures.Hotkeys.ThreeFingerSwipeDown);
+            Set("FourFingerSwipeLeft", config.Gestures.Hotkeys.FourFingerSwipeLeft);
+            Set("FourFingerSwipeRight", config.Gestures.Hotkeys.FourFingerSwipeRight);
+            Set("FourFingerSwipeUp", config.Gestures.Hotkeys.FourFingerSwipeUp);
+            Set("FourFingerSwipeDown", config.Gestures.Hotkeys.FourFingerSwipeDown);
+            Set("LogRawReports", config.LogRawReports);
 
-        Set("KeyboardEnabled", config.Keyboard.Enabled);
-        Set("KeyboardOnlyWhenAppleKeyboardPresent", config.Keyboard.OnlyWhenAppleKeyboardPresent);
-        Set("KeyboardSwapExchangedKeys", config.Keyboard.SwapExchangedKeys);
-        Set("FKeyMode", config.Keyboard.FKeyMode);
-        Set("KeyboardLeftCommand", config.Keyboard.LeftCommand);
-        Set("KeyboardRightCommand", config.Keyboard.RightCommand);
-        Set("KeyboardLeftControl", config.Keyboard.LeftControl);
-        Set("KeyboardRightControl", config.Keyboard.RightControl);
-        Set("KeyboardLeftOption", config.Keyboard.LeftOption);
-        Set("KeyboardRightOption", config.Keyboard.RightOption);
-        Set("KeyboardCapsLock", config.Keyboard.CapsLock);
-        Set("KeyboardFnGlobe", config.Keyboard.FnGlobe);
-        Set("KeyboardF13", config.Keyboard.F13);
-        Set("KeyboardF14", config.Keyboard.F14);
-        Set("KeyboardF15", config.Keyboard.F15);
-        Set("KeyboardF16", config.Keyboard.F16);
-        Set("KeyboardF17", config.Keyboard.F17);
-        Set("KeyboardF18", config.Keyboard.F18);
-        Set("KeyboardF19", config.Keyboard.F19);
+            Set("KeyboardEnabled", config.Keyboard.Enabled);
+            Set("KeyboardOnlyWhenAppleKeyboardPresent", config.Keyboard.OnlyWhenAppleKeyboardPresent);
+            Set("KeyboardSwapExchangedKeys", config.Keyboard.SwapExchangedKeys);
+            Set("FKeyMode", config.Keyboard.FKeyMode);
+            Set("KeyboardLeftCommand", config.Keyboard.LeftCommand);
+            Set("KeyboardRightCommand", config.Keyboard.RightCommand);
+            Set("KeyboardLeftControl", config.Keyboard.LeftControl);
+            Set("KeyboardRightControl", config.Keyboard.RightControl);
+            Set("KeyboardLeftOption", config.Keyboard.LeftOption);
+            Set("KeyboardRightOption", config.Keyboard.RightOption);
+            Set("KeyboardCapsLock", config.Keyboard.CapsLock);
+            Set("KeyboardFnGlobe", config.Keyboard.FnGlobe);
+            Set("KeyboardF13", config.Keyboard.F13);
+            Set("KeyboardF14", config.Keyboard.F14);
+            Set("KeyboardF15", config.Keyboard.F15);
+            Set("KeyboardF16", config.Keyboard.F16);
+            Set("KeyboardF17", config.Keyboard.F17);
+            Set("KeyboardF18", config.Keyboard.F18);
+            Set("KeyboardF19", config.Keyboard.F19);
+        }
+        finally
+        {
+            loadingValues = false;
+        }
     }
 
-    private bool Save(bool showMessage = true)
+    private bool SaveNow()
     {
         try
         {
             ReadValues();
             ValidateHotkeys();
             ConfigStore.Save(configPath, config);
-            if (showMessage)
-            {
-                MessageBox.Show(this, "Settings saved.", "Apple Peripherals", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
+            autoSaveErrorShown = false;
             return true;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Apple Peripherals", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            if (!autoSaveErrorShown)
+            {
+                MessageBox.Show(this, ex.Message, "Apple Peripherals", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                autoSaveErrorShown = true;
+            }
+
             return false;
         }
     }
@@ -1084,7 +1133,7 @@ public sealed class SettingsForm : Form
         }
 
         var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, Width = 450, Height = 42 };
-        var ok = new Button { Text = "Apply", Width = 90, Height = 30 };
+        var ok = new Button { Text = "Done", Width = 90, Height = 30 };
         ok.Click += (_, _) =>
         {
             foreach (var item in edits)
@@ -1098,6 +1147,7 @@ public sealed class SettingsForm : Form
             Set("KeyboardF17", config.Keyboard.F17);
             Set("KeyboardF18", config.Keyboard.F18);
             Set("KeyboardF19", config.Keyboard.F19);
+            ScheduleAutoSave();
             dialog.Close();
         };
         buttons.Controls.Add(ok);
@@ -1184,23 +1234,6 @@ public sealed class SettingsForm : Form
             dialog.Close();
         };
         dialog.ShowDialog(this);
-    }
-
-    private void StartBridge()
-    {
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-        {
-            FileName = Application.ExecutablePath,
-            Arguments = $"--bridge --config \"{configPath}\"",
-            WorkingDirectory = AppContext.BaseDirectory,
-            UseShellExecute = false,
-        });
-    }
-
-    private void OpenConfigFolder()
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(configPath) ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
-        System.Diagnostics.Process.Start("explorer.exe", Path.GetDirectoryName(configPath)!);
     }
 
     private List<DeviceTabInfo> DeviceTabs()
