@@ -11,7 +11,7 @@ Windows can pair the Magic Trackpad as a Bluetooth HID pointer, but the useful t
 - Sends the Apple multitouch feature report when the HID collection is openable from user mode.
 - Parses Apple 9-byte multitouch reports.
 - Injects one-finger pointer movement, physical click, tap-to-click, two-finger scroll, horizontal scroll, two-finger secondary click, pinch-to-zoom through Ctrl+wheel, three-finger desktop swipes, and three-finger middle click.
-- Lets you change pointer sensitivity, pointer direction, scroll direction, scroll speed, tap settings, pinch settings, swipe thresholds, and swipe keybinds.
+- Lets you change pointer sensitivity, pointer direction, scroll direction, scroll speed, tap buttons, physical click buttons, pinch settings, swipe thresholds, and swipe keybinds.
 - Installs a Start Menu settings app and a per-user background task.
 - Keeps Bluetooth multitouch mode refreshed after reconnects and wake events.
 
@@ -27,8 +27,8 @@ The app has tabs for:
 
 - Pointer: enable movement, sensitivity, and X/Y direction.
 - Scroll: natural scrolling, speed, and horizontal scrolling.
-- Clicks: tap-to-click, two-finger right click, and three-finger middle click.
-- Gestures: pinch zoom, swipe thresholds, and three-/four-finger swipe keybinds.
+- Clicks: tap-to-click, two-/three-finger tap actions, and physical click actions.
+- Gestures: pinch zoom modifier, swipe thresholds, and three-/four-finger swipe keybinds.
 - Service: automatic multitouch refresh, raw report logging, and bridge controls.
 
 ## Quick Start

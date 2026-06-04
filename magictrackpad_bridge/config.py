@@ -32,11 +32,17 @@ class GestureConfig:
     scroll_sensitivity: float = 0.42
     horizontal_scroll_enabled: bool = True
     tap_to_click: bool = True
+    one_finger_tap_button: str = "left"
+    two_finger_tap_button: str = "right"
+    three_finger_tap_button: str = "middle"
+    physical_click_button: str = "left"
+    multi_finger_physical_click_button: str = "right"
     tap_max_seconds: float = 0.18
     tap_max_distance: float = 95.0
     secondary_click_enabled: bool = True
     three_finger_middle_click: bool = True
     pinch_zoom_enabled: bool = True
+    pinch_zoom_modifier: str = "Ctrl"
     pinch_sensitivity: float = 0.55
     pinch_threshold: float = 14.0
     three_finger_swipes_enabled: bool = True

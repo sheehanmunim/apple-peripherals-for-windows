@@ -53,6 +53,24 @@ class GestureEngineTests(unittest.TestCase):
 
         self.assertEqual(injector.events, [("down", ("right",)), ("up", ("right",))])
 
+    def test_tap_buttons_are_configurable(self) -> None:
+        injector = DryRunInjector()
+        engine = GestureEngine(injector, GestureConfig(one_finger_tap_button="middle"))
+
+        engine.process_frame(frame([touch(1, 0, 0)]), now=1.00)
+        engine.process_frame(frame([]), now=1.08)
+
+        self.assertEqual(injector.events, [("down", ("middle",)), ("up", ("middle",))])
+
+    def test_physical_click_button_is_configurable(self) -> None:
+        injector = DryRunInjector()
+        engine = GestureEngine(injector, GestureConfig(physical_click_button="middle"))
+
+        engine.process_frame(frame([touch(1, 0, 0)], clicks=1), now=1.00)
+        engine.process_frame(frame([touch(1, 0, 0)], clicks=0), now=1.10)
+
+        self.assertEqual(injector.events, [("down", ("middle",)), ("up", ("middle",))])
+
     def test_three_finger_left_swipe(self) -> None:
         injector = DryRunInjector()
         engine = GestureEngine(injector, GestureConfig(swipe_threshold=100))

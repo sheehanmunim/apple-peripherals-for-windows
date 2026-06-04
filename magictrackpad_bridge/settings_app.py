@@ -78,13 +78,19 @@ class SettingsApp:
 
     def _build_clicks_tab(self, parent: ttk.Frame) -> None:
         self._check(parent, "tap_to_click", "Tap to click")
+        self._choice(parent, "one_finger_tap_button", "One-finger tap action", ["left", "right", "middle", "none"])
+        self._choice(parent, "two_finger_tap_button", "Two-finger tap action", ["right", "left", "middle", "none"])
+        self._choice(parent, "three_finger_tap_button", "Three-finger tap action", ["middle", "left", "right", "none"])
         self._scale(parent, "tap_max_seconds", "Tap max time", 0.05, 0.50)
         self._scale(parent, "tap_max_distance", "Tap movement tolerance", 10.0, 250.0)
         self._check(parent, "secondary_click_enabled", "Two-finger secondary click")
         self._check(parent, "three_finger_middle_click", "Three-finger middle click")
+        self._choice(parent, "physical_click_button", "Physical click action", ["left", "right", "middle", "none"])
+        self._choice(parent, "multi_finger_physical_click_button", "Multi-finger physical click action", ["right", "left", "middle", "none"])
 
     def _build_gestures_tab(self, parent: ttk.Frame) -> None:
         self._check(parent, "pinch_zoom_enabled", "Pinch to zoom")
+        self._choice(parent, "pinch_zoom_modifier", "Pinch zoom modifier", ["Ctrl", "Alt", "Shift", "Win", "none"])
         self._scale(parent, "pinch_sensitivity", "Pinch sensitivity", 0.10, 2.0)
         self._scale(parent, "pinch_threshold", "Pinch activation threshold", 2.0, 80.0)
         self._check(parent, "three_finger_swipes_enabled", "Enable three- and four-finger swipe keybinds")
@@ -152,6 +158,15 @@ class SettingsApp:
         slider = ttk.Scale(frame, from_=minimum, to=maximum, orient=tk.HORIZONTAL, variable=var, command=lambda _value: update_value())
         slider.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=(4, 0))
         var.trace_add("write", update_value)
+
+    def _choice(self, parent: ttk.Frame, name: str, label: str, choices: list[str]) -> None:
+        frame = ttk.Frame(parent)
+        frame.pack(fill=tk.X, pady=6)
+        ttk.Label(frame, text=label).pack(side=tk.LEFT)
+        var = tk.StringVar()
+        self.vars[name] = var
+        combo = ttk.Combobox(frame, textvariable=var, values=choices, state="readonly", width=16)
+        combo.pack(side=tk.RIGHT)
 
     def _load_values(self) -> None:
         data = asdict(self.config)
@@ -270,11 +285,17 @@ class SettingsApp:
             scroll_sensitivity=float(self.vars["scroll_sensitivity"].get()),
             horizontal_scroll_enabled=bool(self.vars["horizontal_scroll_enabled"].get()),
             tap_to_click=bool(self.vars["tap_to_click"].get()),
+            one_finger_tap_button=str(self.vars["one_finger_tap_button"].get()),
+            two_finger_tap_button=str(self.vars["two_finger_tap_button"].get()),
+            three_finger_tap_button=str(self.vars["three_finger_tap_button"].get()),
+            physical_click_button=str(self.vars["physical_click_button"].get()),
+            multi_finger_physical_click_button=str(self.vars["multi_finger_physical_click_button"].get()),
             tap_max_seconds=float(self.vars["tap_max_seconds"].get()),
             tap_max_distance=float(self.vars["tap_max_distance"].get()),
             secondary_click_enabled=bool(self.vars["secondary_click_enabled"].get()),
             three_finger_middle_click=bool(self.vars["three_finger_middle_click"].get()),
             pinch_zoom_enabled=bool(self.vars["pinch_zoom_enabled"].get()),
+            pinch_zoom_modifier=str(self.vars["pinch_zoom_modifier"].get()),
             pinch_sensitivity=float(self.vars["pinch_sensitivity"].get()),
             pinch_threshold=float(self.vars["pinch_threshold"].get()),
             three_finger_swipes_enabled=bool(self.vars["three_finger_swipes_enabled"].get()),

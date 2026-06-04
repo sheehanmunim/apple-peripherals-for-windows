@@ -49,12 +49,14 @@ class GestureEngine:
 
         if click_down:
             if self.config.secondary_click_enabled and len(active) >= 2:
-                self.active_button = "right"
+                self.active_button = self._button_or_none(self.config.multi_finger_physical_click_button)
             else:
-                self.active_button = "left"
-            self.injector.button_down(self.active_button)
+                self.active_button = self._button_or_none(self.config.physical_click_button)
+            if self.active_button != "none":
+                self.injector.button_down(self.active_button)
         elif self.active_button:
-            self.injector.button_up(self.active_button)
+            if self.active_button != "none":
+                self.injector.button_up(self.active_button)
             self.active_button = None
 
     def _handle_touches(self, active: tuple[Touch, ...], now: float, physical_click_active: bool) -> None:
@@ -104,11 +106,11 @@ class GestureEngine:
             return
 
         if session.count == 1:
-            self.injector.click("left")
+            self._click_configured_button(self.config.one_finger_tap_button)
         elif session.count == 2 and self.config.secondary_click_enabled:
-            self.injector.click("right")
+            self._click_configured_button(self.config.two_finger_tap_button)
         elif session.count == 3 and self.config.three_finger_middle_click:
-            self.injector.click("middle")
+            self._click_configured_button(self.config.three_finger_tap_button)
 
     def _handle_pointer(self, dx: float, dy: float) -> None:
         if not self.config.pointer_enabled:
@@ -141,7 +143,7 @@ class GestureEngine:
             session.pinch_accumulator += pinch_delta * self.config.pinch_sensitivity
             steps = int(session.pinch_accumulator / 120)
             if steps:
-                self.injector.ctrl_wheel(steps * 120)
+                self._send_pinch_wheel(steps * 120)
                 session.pinch_accumulator -= steps * 120
 
         if did_pinch or not self.config.scroll_enabled:
@@ -195,6 +197,30 @@ class GestureEngine:
             self.injector.hotkey(parse_hotkey(value))
         except ValueError:
             return
+
+    def _send_pinch_wheel(self, amount: int) -> None:
+        try:
+            modifiers = parse_hotkey(self.config.pinch_zoom_modifier)
+        except ValueError:
+            modifiers = []
+        if not modifiers:
+            self.injector.wheel(vertical=amount)
+            return
+        self.injector.hotkey_down(modifiers)
+        try:
+            self.injector.wheel(vertical=amount)
+        finally:
+            self.injector.hotkey_up(reversed(modifiers))
+
+    def _click_configured_button(self, button: str) -> None:
+        button = self._button_or_none(button)
+        if button != "none":
+            self.injector.click(button)
+
+    def _button_or_none(self, button: str) -> str:
+        if button in {"left", "right", "middle"}:
+            return button
+        return "none"
 
 
 def _two_touch_distance(active: tuple[Touch, ...]) -> float | None:
