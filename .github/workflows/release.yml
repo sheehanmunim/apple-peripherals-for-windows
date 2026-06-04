@@ -116,6 +116,7 @@ jobs:
             "- Bundles the Microsoft-signed Magic Trackpad Precision Touchpad driver.",
             "- Includes current Magic Keyboard modifier remapping, F-key mappings, and settings UI.",
             "- Adds a Magic Keyboard driver repair action from the keyboard status panel.",
+            "- Adds a live Globe/Fn key probe in the Magic Keyboard page and `--test-globe` command.",
             "- Records whether the installer bundles the signed keyboard filter so the app can show the right Globe/Fn action."
           )
           if ($hasKeyboardDriver) {
