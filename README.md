@@ -216,6 +216,14 @@ Build and package the keyboard filter driver with:
 powershell -ExecutionPolicy Bypass -File .\scripts\build-keyboard-filter-driver.ps1 -Platform x64
 ```
 
+For no-cost local testing, install the latest unsigned CI-built driver with Windows test-signing mode:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -DownloadLatestArtifact -SkipBuild -EnableTestSigning -Elevate
+```
+
+If the script enables test-signing, reboot Windows and run the same command again. The first run changes the boot setting; the second run signs and installs the Apple Keyboard Filter driver after test-signing is active.
+
 Install a signed package from an elevated PowerShell window:
 
 ```powershell
@@ -272,7 +280,7 @@ Check the download path without changing Windows driver or boot settings:
 powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-driver-dev.ps1 -DownloadLatestArtifact -DownloadOnly
 ```
 
-That helper creates a local test code-signing certificate, trusts it for this machine, signs a temporary copy of the local driver catalog, enables Windows test-signing mode, and installs the filter. It is not a public-user install path; reboot after enabling test-signing, then rerun the health check.
+That helper creates a local test code-signing certificate, trusts it for this machine, signs a temporary copy of the local driver catalog, and installs the filter. If it has to enable Windows test-signing mode, it stops after changing the boot setting; reboot Windows and run the same command again so it can sign and install the filter after test-signing is active. It is not a public-user install path.
 
 The keyboard-filter installer tries to restart detected Magic Keyboard driver targets after adding the package. If Windows still reports the filter is not active, reboot or reconnect the keyboard, then rerun the health check and live Globe/Fn test.
 

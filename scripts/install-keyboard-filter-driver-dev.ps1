@@ -430,6 +430,11 @@ if (!(Test-Administrator)) {
 }
 
 $rebootRequired = Enable-TestSigningIfRequested
+if ($rebootRequired) {
+    Write-Warning "Windows test-signing mode was enabled. Reboot Windows, then run this command again to sign and install the Apple Keyboard Filter driver."
+    exit 3010
+}
+
 $certificate = Get-OrCreateCodeSigningCertificate
 Trust-CertificateForLocalMachine $certificate
 
@@ -457,9 +462,6 @@ finally {
     }
 }
 
-if ($rebootRequired) {
-    Write-Warning "Reboot Windows, then run scripts\check-keyboard-filter-driver.ps1 again. The Globe/Fn key cannot work through the filter until test-signing is active after reboot."
-}
-elseif (!$NoInstall) {
+if (!$NoInstall) {
     Write-Warning "If the filter is not bound yet, reconnect the Magic Keyboard or reboot Windows."
 }
