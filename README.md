@@ -223,6 +223,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-drive
 ```
 
 If the script enables test-signing, reboot Windows and run the same command again. The first run changes the boot setting; the second run signs and installs the Apple Keyboard Filter driver after test-signing is active.
+If Windows reports that the setting is protected by Secure Boot policy, disable Secure Boot in UEFI/BIOS first, reboot Windows, and rerun the command.
 
 Install a signed package from an elevated PowerShell window:
 
@@ -281,6 +282,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-keyboard-filter-drive
 ```
 
 That helper creates a local test code-signing certificate, trusts it for this machine, signs a temporary copy of the local driver catalog, and installs the filter. If it has to enable Windows test-signing mode, it stops after changing the boot setting; reboot Windows and run the same command again so it can sign and install the filter after test-signing is active. It is not a public-user install path.
+If Secure Boot is enabled, Windows blocks test-signing mode; disable Secure Boot in UEFI/BIOS before using this no-cost path.
 
 The keyboard-filter installer tries to restart detected Magic Keyboard driver targets after adding the package. If Windows still reports the filter is not active, reboot or reconnect the keyboard, then rerun the health check and live Globe/Fn test.
 

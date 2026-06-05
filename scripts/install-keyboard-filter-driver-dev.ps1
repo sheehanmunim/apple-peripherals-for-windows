@@ -362,7 +362,12 @@ function Enable-TestSigningIfRequested {
     Write-Warning "Enabling Windows test-signing mode for local development. A reboot is required before the test-signed keyboard filter can load."
     $output = & bcdedit.exe /set testsigning on 2>&1
     if ($LASTEXITCODE -ne 0) {
-        throw "bcdedit /set testsigning on failed: $output"
+        $message = $output -join "`n"
+        if ($message -match "Secure Boot policy") {
+            throw "Secure Boot is blocking Windows test-signing mode. Disable Secure Boot in UEFI/BIOS, reboot Windows, then run this installer again; or use a Microsoft-signed Apple Keyboard Filter driver package."
+        }
+
+        throw "bcdedit /set testsigning on failed: $message"
     }
 
     return $true
