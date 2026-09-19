@@ -52,14 +52,19 @@ static VOID DiagWorkItemRoutine(_In_ PDEVICE_OBJECT DeviceObject, _In_opt_ PVOID
     PDEVICE_EXTENSION extension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
     UNICODE_STRING path;
-    RtlInitUnicodeString(&path, L"\Registry\Machine\SYSTEM\CurrentControlSet\Services\AppleKeyboardFilter\Diag");
+    RtlInitUnicodeString(&path, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\AppleKeyboardFilter");
     OBJECT_ATTRIBUTES attributes;
     InitializeObjectAttributes(&attributes, &path, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
 
     HANDLE key = NULL;
-    ULONG disposition = 0;
-    if (NT_SUCCESS(ZwCreateKey(&key, KEY_SET_VALUE, &attributes, 0, NULL, REG_OPTION_NON_VOLATILE, &disposition)))
+    InterlockedIncrement(&g_Diag.WorkItemRuns);
+    NTSTATUS openStatus = ZwOpenKey(&key, KEY_SET_VALUE, &attributes);
+    if (NT_SUCCESS(openStatus))
     {
+        SetDiagDword(key, L"DiagWorkItemRuns", (ULONG)g_Diag.WorkItemRuns);
+        SetDiagDword(key, L"DiagPnpIrps", (ULONG)g_Diag.PnpIrps);
+        SetDiagDword(key, L"DiagPowerIrps", (ULONG)g_Diag.PowerIrps);
+        SetDiagDword(key, L"DiagStartCompletions", (ULONG)g_Diag.StartCompletions);
         UCHAR raw[16];
         UCHAR special[16];
         RtlCopyMemory(raw, g_Diag.LastRaw, sizeof(raw));
@@ -246,6 +251,8 @@ NTSTATUS DispatchPnp(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
         return CompleteRequest(Irp, status, 0);
     }
 
+    InterlockedIncrement(&g_Diag.PnpIrps);
+
     if (stack->MinorFunction == IRP_MN_REMOVE_DEVICE)
     {
         IoSkipCurrentIrpStackLocation(Irp);
@@ -295,6 +302,9 @@ NTSTATUS StartDeviceComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp,
     {
         extension->DeviceObject->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
+
+    InterlockedIncrement(&g_Diag.StartCompletions);
+    QueueDiag(extension);
 
     IoReleaseRemoveLock(&extension->RemoveLock, Irp);
     return STATUS_SUCCESS;

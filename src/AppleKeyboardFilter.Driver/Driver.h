@@ -73,6 +73,10 @@ typedef struct _APPLE_KBD_DIAG
     volatile LONG OtherIrps;         // every other request type seen (DispatchAny)
     volatile LONG MajorCounts[28];   // DispatchAny requests per major function
     volatile LONG RingIndex;
+    volatile LONG PnpIrps;
+    volatile LONG PowerIrps;
+    volatile LONG StartCompletions;
+    volatile LONG WorkItemRuns;
     ULONG Ring[16][2];               // last internal requests: {ioctl code, BRB/URB type}
 } APPLE_KBD_DIAG;
 
