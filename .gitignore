@@ -32,3 +32,5 @@ logs/
 .vs/
 .idea/
 .vscode/
+artifacts/
+driver*/
