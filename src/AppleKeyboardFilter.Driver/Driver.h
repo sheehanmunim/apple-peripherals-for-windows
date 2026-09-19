@@ -45,6 +45,16 @@ enum AppleKeyboardHidCodes
 enum AppleKeyboardHidMasks
 {
     AppleSpecialFnMask = 0x02,
+    AppleSpecialLockMask = 0x08,
+    HidLeftCtrlMask = 0x01,
+};
+
+// This keyboard's report descriptor declares the key array as usages
+// 0x00..0x65, so anything above that (F13..F24 at 0x68..0x73) is discarded by
+// the HID parser as out of range. Only in-range usages can be injected.
+enum AppleKeyboardInRangeCodes
+{
+    HidDeleteForward = 0x4C,
 };
 
 typedef struct _DEVICE_EXTENSION

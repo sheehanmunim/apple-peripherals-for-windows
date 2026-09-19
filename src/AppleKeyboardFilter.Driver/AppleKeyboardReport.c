@@ -28,29 +28,26 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
         return;
     }
 
+    PUCHAR modifiers = &Report[0];
     PUCHAR keySlots = &Report[2];
     PUCHAR specialKey = &Report[8];
 
+    // fn becomes a real Left Control: a modifier bit, not a key slot, so
+    // fn+key combinations arrive as Ctrl+key.
     if ((*specialKey & AppleSpecialFnMask) != 0)
     {
-        AddKeySlot(keySlots, HidF23);
-        *specialKey &= ~AppleSpecialFnMask;
+        *modifiers |= HidLeftCtrlMask;
     }
 
-    // Any other bit in the vendor byte (the Touch ID / lock key sends one of
-    // these, Windows drops it) is reported as F13..F19 so the app can map it.
-    // bit0 -> F13, bit2 -> F14, bit3 -> F15, bit4 -> F16, bit5 -> F17,
-    // bit6 -> F18, bit7 -> F19.
-    static const UCHAR extraBitToHid[8] = { HidF13, 0, HidF14, HidF15, HidF16, HidF17, HidF18, HidF19 };
-    for (ULONG bit = 0; bit < 8; bit++)
+    // The lock key becomes forward Delete (Supr).
+    if ((*specialKey & AppleSpecialLockMask) != 0)
     {
-        const UCHAR mask = (UCHAR)(1u << bit);
-        if (extraBitToHid[bit] != 0 && (*specialKey & mask) != 0)
-        {
-            AddKeySlot(keySlots, extraBitToHid[bit]);
-            *specialKey &= (UCHAR)~mask;
-        }
+        AddKeySlot(keySlots, HidDeleteForward);
     }
+
+    // Windows discards the vendor byte anyway; clear it so nothing downstream
+    // sees a partially handled report.
+    *specialKey = 0;
 }
 
 BOOLEAN TryProcessAppleKeyboardTransportBuffer(_Inout_updates_bytes_(Size) PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes)
