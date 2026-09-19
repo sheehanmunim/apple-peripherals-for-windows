@@ -53,7 +53,25 @@ typedef struct _DEVICE_EXTENSION
     PDEVICE_OBJECT LowerDeviceObject;
     PDEVICE_OBJECT Pdo;
     IO_REMOVE_LOCK RemoveLock;
+    PIO_WORKITEM DiagWorkItem;
+    volatile LONG DiagPending;
 } DEVICE_EXTENSION, *PDEVICE_EXTENSION;
+
+// Diagnostics: what the Bluetooth read path actually delivers. Written to
+// HKLM\SYSTEM\CurrentControlSet\Services\AppleKeyboardFilter\Diag by a work item.
+typedef struct _APPLE_KBD_DIAG
+{
+    volatile LONG Completions;   // BRB_L2CA_ACL_TRANSFER completions seen
+    volatile LONG WithBuffer;    // ... that had a plain Buffer
+    volatile LONG WithMdl;       // ... that only had an MDL
+    volatile LONG NoBuffer;      // ... that had neither
+    volatile LONG Processed;     // reports handed to the F23/lock translation
+    volatile LONG LastSize;
+    UCHAR LastRaw[16];           // last transport buffer, before translation
+    UCHAR LastSpecialRaw[16];    // last one whose byte 1 or byte 8 was non-zero
+} APPLE_KBD_DIAG;
+
+extern APPLE_KBD_DIAG g_Diag;
 
 DRIVER_INITIALIZE DriverEntry;
 DRIVER_UNLOAD DriverUnload;

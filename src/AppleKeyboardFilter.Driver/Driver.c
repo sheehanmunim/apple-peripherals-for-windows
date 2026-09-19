@@ -12,6 +12,55 @@ static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject);
 #endif
 
 ULONG g_EmitFnAsF23 = 1;
+APPLE_KBD_DIAG g_Diag;
+
+static VOID SetDiagDword(_In_ HANDLE key, _In_ PCWSTR name, _In_ ULONG value)
+{
+    UNICODE_STRING valueName;
+    RtlInitUnicodeString(&valueName, name);
+    ZwSetValueKey(key, &valueName, 0, REG_DWORD, &value, sizeof(value));
+}
+
+static VOID SetDiagBinary(_In_ HANDLE key, _In_ PCWSTR name, _In_reads_bytes_(length) PVOID data, _In_ ULONG length)
+{
+    UNICODE_STRING valueName;
+    RtlInitUnicodeString(&valueName, name);
+    ZwSetValueKey(key, &valueName, 0, REG_BINARY, data, length);
+}
+
+static VOID DiagWorkItemRoutine(_In_ PDEVICE_OBJECT DeviceObject, _In_opt_ PVOID Context)
+{
+    UNREFERENCED_PARAMETER(Context);
+    PDEVICE_EXTENSION extension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
+
+    UNICODE_STRING path;
+    RtlInitUnicodeString(&path, L"\Registry\Machine\SYSTEM\CurrentControlSet\Services\AppleKeyboardFilter\Diag");
+    OBJECT_ATTRIBUTES attributes;
+    InitializeObjectAttributes(&attributes, &path, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+
+    HANDLE key = NULL;
+    ULONG disposition = 0;
+    if (NT_SUCCESS(ZwCreateKey(&key, KEY_SET_VALUE, &attributes, 0, NULL, REG_OPTION_NON_VOLATILE, &disposition)))
+    {
+        UCHAR raw[16];
+        UCHAR special[16];
+        RtlCopyMemory(raw, g_Diag.LastRaw, sizeof(raw));
+        RtlCopyMemory(special, g_Diag.LastSpecialRaw, sizeof(special));
+
+        SetDiagDword(key, L"Completions", (ULONG)g_Diag.Completions);
+        SetDiagDword(key, L"WithBuffer", (ULONG)g_Diag.WithBuffer);
+        SetDiagDword(key, L"WithMdl", (ULONG)g_Diag.WithMdl);
+        SetDiagDword(key, L"NoBuffer", (ULONG)g_Diag.NoBuffer);
+        SetDiagDword(key, L"Processed", (ULONG)g_Diag.Processed);
+        SetDiagDword(key, L"LastSize", (ULONG)g_Diag.LastSize);
+        SetDiagBinary(key, L"LastRaw", raw, sizeof(raw));
+        SetDiagBinary(key, L"LastSpecialRaw", special, sizeof(special));
+        ZwClose(key);
+    }
+
+    InterlockedExchange(&extension->DiagPending, 0);
+    IoReleaseRemoveLock(&extension->RemoveLock, &extension->DiagPending);
+}
 
 static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject)
 {
@@ -21,6 +70,12 @@ static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject)
     if (extension->LowerDeviceObject != NULL)
     {
         IoDetachDevice(extension->LowerDeviceObject);
+    }
+
+    if (extension->DiagWorkItem != NULL)
+    {
+        IoFreeWorkItem(extension->DiagWorkItem);
+        extension->DiagWorkItem = NULL;
     }
 
     IoDeleteDevice(DeviceObject);
@@ -76,6 +131,7 @@ NTSTATUS AddDevice(_In_ PDRIVER_OBJECT DriverObject, _In_ PDEVICE_OBJECT Pdo)
     IoInitializeRemoveLock(&extension->RemoveLock, 0, 0, 0);
     extension->DeviceObject = filterDevice;
     extension->Pdo = Pdo;
+    extension->DiagWorkItem = IoAllocateWorkItem(filterDevice);
 
     PDEVICE_OBJECT lowerDevice = IoAttachDeviceToDeviceStack(filterDevice, Pdo);
     if (lowerDevice == NULL)
@@ -248,7 +304,55 @@ NTSTATUS InternalIoctlComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Ir
             {
                 PUCHAR buffer = (PUCHAR)brb->BrbL2caAclTransfer.Buffer;
                 ULONG size = brb->BrbL2caAclTransfer.BufferSize;
-                TryProcessAppleKeyboardTransportBuffer(buffer, size, 2);
+                LONG completions = InterlockedIncrement(&g_Diag.Completions);
+                if (buffer != NULL)
+                {
+                    InterlockedIncrement(&g_Diag.WithBuffer);
+                }
+                else if (brb->BrbL2caAclTransfer.BufferMDL != NULL)
+                {
+                    InterlockedIncrement(&g_Diag.WithMdl);
+                    buffer = (PUCHAR)MmGetSystemAddressForMdlSafe(
+                        brb->BrbL2caAclTransfer.BufferMDL,
+                        NormalPagePriority | MdlMappingNoExecute);
+                }
+                else
+                {
+                    InterlockedIncrement(&g_Diag.NoBuffer);
+                }
+
+                BOOLEAN interesting = FALSE;
+                if (buffer != NULL && size >= 4)
+                {
+                    ULONG copy = size < sizeof(g_Diag.LastRaw) ? size : sizeof(g_Diag.LastRaw);
+                    g_Diag.LastSize = (LONG)size;
+                    RtlCopyMemory(g_Diag.LastRaw, buffer, copy);
+                    if (buffer[3] != 0 || (size > 10 && buffer[10] != 0))
+                    {
+                        RtlZeroMemory(g_Diag.LastSpecialRaw, sizeof(g_Diag.LastSpecialRaw));
+                        RtlCopyMemory(g_Diag.LastSpecialRaw, buffer, copy);
+                        interesting = TRUE;
+                    }
+                }
+
+                if (TryProcessAppleKeyboardTransportBuffer(buffer, size, 2))
+                {
+                    InterlockedIncrement(&g_Diag.Processed);
+                }
+
+                if ((interesting || completions == 1 || (completions % 32) == 0) &&
+                    extension->DiagWorkItem != NULL &&
+                    InterlockedCompareExchange(&extension->DiagPending, 1, 0) == 0)
+                {
+                    if (NT_SUCCESS(IoAcquireRemoveLock(&extension->RemoveLock, &extension->DiagPending)))
+                    {
+                        IoQueueWorkItem(extension->DiagWorkItem, DiagWorkItemRoutine, DelayedWorkQueue, NULL);
+                    }
+                    else
+                    {
+                        InterlockedExchange(&extension->DiagPending, 0);
+                    }
+                }
             }
         }
         else if (controlCode == IOCTL_INTERNAL_USB_SUBMIT_URB)
