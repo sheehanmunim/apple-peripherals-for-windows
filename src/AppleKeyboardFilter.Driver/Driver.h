@@ -32,6 +32,13 @@ extern ULONG g_EmitFnAsF23;
 enum AppleKeyboardHidCodes
 {
     HidKeyNone = 0x00,
+    HidF13 = 0x68,
+    HidF14 = 0x69,
+    HidF15 = 0x6A,
+    HidF16 = 0x6B,
+    HidF17 = 0x6C,
+    HidF18 = 0x6D,
+    HidF19 = 0x6E,
     HidF23 = 0x72,
 };
 
