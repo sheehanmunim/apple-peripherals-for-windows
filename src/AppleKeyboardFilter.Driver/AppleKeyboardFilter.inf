@@ -12,7 +12,7 @@ Provider=%Provider%
 CatalogFile=AppleKeyboardFilter.cat
 DriverPackageDisplayName=%DriverPackageDisplayName%
 DriverPackageType=PlugAndPlay
-DriverVer=09/19/2026,0.4.4.0
+DriverVer=09/19/2026,0.4.5.0
 PnpLockdown=1
 
 [ControlFlags]
@@ -81,7 +81,7 @@ ServiceBinary=%12%\AppleKeyboardFilter.sys
 AddReg=AppleKeyboardFilter_ServiceSettings
 
 [AppleKeyboardFilter_ServiceSettings]
-HKR,,EmitFnAsF23,0x00010001,1
+HKR,"Parameters",EmitFnAsF23,0x00010001,1
 
 [Strings]
 Provider="Apple Peripherals for Windows"

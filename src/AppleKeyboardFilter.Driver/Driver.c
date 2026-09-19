@@ -70,6 +70,8 @@ static VOID DiagWorkItemRoutine(_In_ PDEVICE_OBJECT DeviceObject, _In_opt_ PVOID
         SetDiagDword(key, L"ReadsProcessed", (ULONG)g_Diag.ReadsProcessed);
         SetDiagBinary(key, L"LastReadRaw", (PVOID)g_Diag.LastReadRaw, sizeof(g_Diag.LastReadRaw));
         SetDiagBinary(key, L"LastReadSpecial", (PVOID)g_Diag.LastReadSpecial, sizeof(g_Diag.LastReadSpecial));
+        SetDiagDword(key, L"ReportRingIndex", (ULONG)g_Diag.ReportRingIndex);
+        SetDiagBinary(key, L"ReportRing", (PVOID)g_Diag.ReportRing, sizeof(g_Diag.ReportRing));
         UCHAR raw[16];
         UCHAR special[16];
         RtlCopyMemory(raw, g_Diag.LastRaw, sizeof(raw));
@@ -133,7 +135,17 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     // Bluetooth transport, the reports arrive as ordinary reads from kbdhid.
     DriverObject->MajorFunction[IRP_MJ_READ] = DispatchRead;
 
-    ReadDriverDword(RegistryPath, L"EmitFnAsF23", &g_EmitFnAsF23);
+    // The tunable lives under the service's Parameters subkey (InfVerif 1323).
+    WCHAR pathBuffer[512];
+    UNICODE_STRING parameters;
+    parameters.Buffer = pathBuffer;
+    parameters.Length = 0;
+    parameters.MaximumLength = sizeof(pathBuffer);
+    if (NT_SUCCESS(RtlAppendUnicodeStringToString(&parameters, RegistryPath)) &&
+        NT_SUCCESS(RtlAppendUnicodeToString(&parameters, L"\Parameters")))
+    {
+        ReadDriverDword(&parameters, L"EmitFnAsF23", &g_EmitFnAsF23);
+    }
     return STATUS_SUCCESS;
 }
 
@@ -469,8 +481,21 @@ NTSTATUS ReadComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ P
             // A 10-byte report is report ID 1 plus the 9-byte boot-keyboard
             // body; a 9-byte one is the body on its own.
             ULONG prefix = (size >= 10 && buffer[0] == 1) ? 1 : 0;
-            BOOLEAN special = buffer[prefix + 8] != 0;
-            if (special)
+            // Keep the last few non-empty reports exactly as they arrived, so
+            // this keyboard's real vendor-bit layout can be read off later.
+            BOOLEAN nonEmpty = FALSE;
+            for (ULONG i = prefix; i < size && i < prefix + 9; i++)
+            {
+                if (buffer[i] != 0) { nonEmpty = TRUE; break; }
+            }
+            if (nonEmpty)
+            {
+                LONG slot = (InterlockedIncrement(&g_Diag.ReportRingIndex) - 1) & 31;
+                RtlZeroMemory(g_Diag.ReportRing[slot], 10);
+                RtlCopyMemory(g_Diag.ReportRing[slot], buffer, copy < 10 ? copy : 10);
+            }
+            BOOLEAN special = (buffer[prefix + 8] != 0) || (buffer[prefix + 1] != 0);
+            if (special || nonEmpty)
             {
                 RtlZeroMemory(g_Diag.LastReadSpecial, sizeof(g_Diag.LastReadSpecial));
                 RtlCopyMemory(g_Diag.LastReadSpecial, buffer, copy);
@@ -481,7 +506,7 @@ NTSTATUS ReadComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ P
                 InterlockedIncrement(&g_Diag.ReadsProcessed);
             }
 
-            if (special)
+            if (special || nonEmpty)
             {
                 QueueDiag(extension);
             }

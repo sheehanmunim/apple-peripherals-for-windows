@@ -82,6 +82,8 @@ typedef struct _APPLE_KBD_DIAG
     volatile LONG ReadsProcessed;  // ... that went through the fn/lock translation
     UCHAR LastReadRaw[16];         // last report read, before translation
     UCHAR LastReadSpecial[16];     // last one whose vendor byte was non-zero
+    volatile LONG ReportRingIndex;   // next slot to write in ReportRing
+    UCHAR ReportRing[32][10];        // last non-empty reports, before translation
     ULONG Ring[16][2];               // last internal requests: {ioctl code, BRB/URB type}
 } APPLE_KBD_DIAG;
 

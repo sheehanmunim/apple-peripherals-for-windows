@@ -65,7 +65,8 @@ function Find-MSBuild {
             if (!$toolset) { continue }
 
             $path = Get-ChildItem "$root\MSBuild" -Recurse -Filter MSBuild.exe -ErrorAction SilentlyContinue |
-                Where-Object { $_.FullName -like "*\Bin\MSBuild.exe" } |
+                Where-Object { $_.FullName -like "*\Bin\MSBuild.exe" -or $_.FullName -like "*\Bin\amd64\MSBuild.exe" } |
+                Sort-Object { $_.FullName -notlike "*\amd64\*" } |
                 Select-Object -First 1 -ExpandProperty FullName
             if ($path) {
                 return $path
