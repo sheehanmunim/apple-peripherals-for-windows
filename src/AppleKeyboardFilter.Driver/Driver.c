@@ -65,6 +65,11 @@ static VOID DiagWorkItemRoutine(_In_ PDEVICE_OBJECT DeviceObject, _In_opt_ PVOID
         SetDiagDword(key, L"DiagPnpIrps", (ULONG)g_Diag.PnpIrps);
         SetDiagDword(key, L"DiagPowerIrps", (ULONG)g_Diag.PowerIrps);
         SetDiagDword(key, L"DiagStartCompletions", (ULONG)g_Diag.StartCompletions);
+        SetDiagDword(key, L"Reads", (ULONG)g_Diag.Reads);
+        SetDiagDword(key, L"ReadsWithData", (ULONG)g_Diag.ReadsWithData);
+        SetDiagDword(key, L"ReadsProcessed", (ULONG)g_Diag.ReadsProcessed);
+        SetDiagBinary(key, L"LastReadRaw", (PVOID)g_Diag.LastReadRaw, sizeof(g_Diag.LastReadRaw));
+        SetDiagBinary(key, L"LastReadSpecial", (PVOID)g_Diag.LastReadSpecial, sizeof(g_Diag.LastReadSpecial));
         UCHAR raw[16];
         UCHAR special[16];
         RtlCopyMemory(raw, g_Diag.LastRaw, sizeof(raw));
@@ -123,6 +128,10 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     DriverObject->MajorFunction[IRP_MJ_POWER] = DispatchPower;
     DriverObject->MajorFunction[IRP_MJ_PNP] = DispatchPnp;
     DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = DispatchInternalIoctl;
+
+    // When the filter is attached to the HID keyboard collection instead of the
+    // Bluetooth transport, the reports arrive as ordinary reads from kbdhid.
+    DriverObject->MajorFunction[IRP_MJ_READ] = DispatchRead;
 
     ReadDriverDword(RegistryPath, L"EmitFnAsF23", &g_EmitFnAsF23);
     return STATUS_SUCCESS;
@@ -416,6 +425,96 @@ NTSTATUS InternalIoctlComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Ir
 
     IoReleaseRemoveLock(&extension->RemoveLock, Irp);
     return STATUS_SUCCESS;
+}
+
+// The report buffer of a read, whichever way this stack passes it along.
+static PUCHAR GetReadBuffer(_In_ PIRP Irp)
+{
+    if (Irp->MdlAddress != NULL)
+    {
+        return (PUCHAR)MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority | MdlMappingNoExecute);
+    }
+
+    if (Irp->AssociatedIrp.SystemBuffer != NULL)
+    {
+        return (PUCHAR)Irp->AssociatedIrp.SystemBuffer;
+    }
+
+    // Only trust a raw pointer when it is a kernel address: a user-mode one
+    // would belong to some other process by the time the read completes.
+    if ((ULONG_PTR)Irp->UserBuffer >= (ULONG_PTR)MM_SYSTEM_RANGE_START)
+    {
+        return (PUCHAR)Irp->UserBuffer;
+    }
+
+    return NULL;
+}
+
+NTSTATUS ReadComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context)
+{
+    UNREFERENCED_PARAMETER(DeviceObject);
+    PDEVICE_EXTENSION extension = (PDEVICE_EXTENSION)Context;
+
+    if (NT_SUCCESS(Irp->IoStatus.Status) && Irp->IoStatus.Information >= 9)
+    {
+        ULONG size = (ULONG)Irp->IoStatus.Information;
+        PUCHAR buffer = GetReadBuffer(Irp);
+        if (buffer != NULL)
+        {
+            ULONG copy = size < sizeof(g_Diag.LastReadRaw) ? size : sizeof(g_Diag.LastReadRaw);
+            RtlZeroMemory(g_Diag.LastReadRaw, sizeof(g_Diag.LastReadRaw));
+            RtlCopyMemory(g_Diag.LastReadRaw, buffer, copy);
+            InterlockedIncrement(&g_Diag.ReadsWithData);
+
+            // A 10-byte report is report ID 1 plus the 9-byte boot-keyboard
+            // body; a 9-byte one is the body on its own.
+            ULONG prefix = (size >= 10 && buffer[0] == 1) ? 1 : 0;
+            BOOLEAN special = buffer[prefix + 8] != 0;
+            if (special)
+            {
+                RtlZeroMemory(g_Diag.LastReadSpecial, sizeof(g_Diag.LastReadSpecial));
+                RtlCopyMemory(g_Diag.LastReadSpecial, buffer, copy);
+            }
+
+            if (TryProcessAppleKeyboardTransportBuffer(buffer, size, prefix))
+            {
+                InterlockedIncrement(&g_Diag.ReadsProcessed);
+            }
+
+            if (special)
+            {
+                QueueDiag(extension);
+            }
+        }
+    }
+
+    if (Irp->PendingReturned)
+    {
+        IoMarkIrpPending(Irp);
+    }
+
+    IoReleaseRemoveLock(&extension->RemoveLock, Irp);
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS DispatchRead(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
+{
+    PDEVICE_EXTENSION extension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
+
+    NTSTATUS status = IoAcquireRemoveLock(&extension->RemoveLock, Irp);
+    if (!NT_SUCCESS(status))
+    {
+        return CompleteRequest(Irp, status, 0);
+    }
+
+    if ((InterlockedIncrement(&g_Diag.Reads) % 32) == 1)
+    {
+        QueueDiag(extension);
+    }
+
+    IoCopyCurrentIrpStackLocationToNext(Irp);
+    IoSetCompletionRoutine(Irp, ReadComplete, extension, TRUE, TRUE, TRUE);
+    return IoCallDriver(extension->LowerDeviceObject, Irp);
 }
 
 NTSTATUS DispatchInternalIoctl(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)

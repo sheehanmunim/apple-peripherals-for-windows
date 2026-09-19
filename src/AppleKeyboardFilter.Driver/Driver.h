@@ -77,6 +77,11 @@ typedef struct _APPLE_KBD_DIAG
     volatile LONG PowerIrps;
     volatile LONG StartCompletions;
     volatile LONG WorkItemRuns;
+    volatile LONG Reads;           // IRP_MJ_READ completions from the HID collection
+    volatile LONG ReadsWithData;   // ... that carried a full keyboard report
+    volatile LONG ReadsProcessed;  // ... that went through the fn/lock translation
+    UCHAR LastReadRaw[16];         // last report read, before translation
+    UCHAR LastReadSpecial[16];     // last one whose vendor byte was non-zero
     ULONG Ring[16][2];               // last internal requests: {ioctl code, BRB/URB type}
 } APPLE_KBD_DIAG;
 
@@ -90,6 +95,8 @@ NTSTATUS DispatchAny(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
 NTSTATUS DispatchPower(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
 NTSTATUS DispatchPnp(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
 NTSTATUS DispatchInternalIoctl(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
+NTSTATUS DispatchRead(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
+NTSTATUS ReadComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context);
 NTSTATUS InternalIoctlComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context);
 NTSTATUS StartDeviceComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context);
 NTSTATUS UsageNotificationComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context);
