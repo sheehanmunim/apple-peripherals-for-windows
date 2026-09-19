@@ -12,7 +12,7 @@ Provider=%Provider%
 CatalogFile=AppleKeyboardFilter.cat
 DriverPackageDisplayName=%DriverPackageDisplayName%
 DriverPackageType=PlugAndPlay
-DriverVer=09/19/2026,0.6.0.0
+DriverVer=09/19/2026,0.6.1.0
 PnpLockdown=1
 
 [ControlFlags]
@@ -37,6 +37,7 @@ AppleKeyboardFilter.sys=1
 %MagicKeyboard.Legacy.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0267&Col01
 %MagicKeyboard.Numeric.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&026c&Col01
 %MagicKeyboard.UsbC.DevDesc%=Collection_Install,HID\VID_05AC&PID_0321&MI_01&Col01
+%MagicKeyboard.Touch.Usb.DevDesc%=Collection_Install,HID\VID_05AC&PID_029C&MI_01&Col01
 %MagicKeyboard.Legacy.Usb.DevDesc%=Collection_Install,HID\VID_05AC&PID_0267&MI_01&Col01
 %MagicKeyboard.Numeric.Usb.DevDesc%=Collection_Install,HID\VID_05AC&PID_026C&MI_01&Col01
 
@@ -46,6 +47,7 @@ AppleKeyboardFilter.sys=1
 %MagicKeyboard.Legacy.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0267&Col01
 %MagicKeyboard.Numeric.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&026c&Col01
 %MagicKeyboard.UsbC.DevDesc%=Collection_Install,HID\VID_05AC&PID_0321&MI_01&Col01
+%MagicKeyboard.Touch.Usb.DevDesc%=Collection_Install,HID\VID_05AC&PID_029C&MI_01&Col01
 %MagicKeyboard.Legacy.Usb.DevDesc%=Collection_Install,HID\VID_05AC&PID_0267&MI_01&Col01
 %MagicKeyboard.Numeric.Usb.DevDesc%=Collection_Install,HID\VID_05AC&PID_026C&MI_01&Col01
 
@@ -97,6 +99,7 @@ DiskName="Apple Keyboard Filter Install Disk"
 ServiceDescription="Apple Keyboard Filter"
 MagicKeyboard.Touch.Bluetooth.DevDesc="Apple Magic Keyboard Touch ID Bluetooth Globe/Fn Filter"
 MagicKeyboard.Bluetooth.DevDesc="Apple Magic Keyboard Bluetooth Globe/Fn Filter"
+MagicKeyboard.Touch.Usb.DevDesc="Apple Magic Keyboard Touch ID USB Globe/Fn Filter"
 MagicKeyboard.UsbC.DevDesc="Apple Magic Keyboard USB-C Globe/Fn Filter"
 MagicKeyboard.Legacy.Bluetooth.DevDesc="Apple Magic Keyboard Bluetooth Globe/Fn Filter"
 MagicKeyboard.Legacy.Usb.DevDesc="Apple Magic Keyboard USB Globe/Fn Filter"
