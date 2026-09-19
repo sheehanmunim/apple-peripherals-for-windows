@@ -84,6 +84,10 @@ typedef struct _APPLE_KBD_DIAG
     UCHAR LastReadSpecial[16];     // last one whose vendor byte was non-zero
     volatile LONG ReportRingIndex;   // next slot to write in ReportRing
     UCHAR ReportRing[32][10];        // last non-empty reports, before translation
+    UCHAR ReportRingOut[32][10];     // the same reports after translation
+    volatile LONG BufferSource;      // 1 = MDL, 2 = system buffer, 3 = user buffer
+    volatile LONG FnSeen;            // reports whose vendor byte had the fn bit
+    volatile LONG ExtraSeen;         // reports whose vendor byte had any other bit
     ULONG Ring[16][2];               // last internal requests: {ioctl code, BRB/URB type}
 } APPLE_KBD_DIAG;
 

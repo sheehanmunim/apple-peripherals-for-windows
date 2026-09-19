@@ -72,6 +72,10 @@ static VOID DiagWorkItemRoutine(_In_ PDEVICE_OBJECT DeviceObject, _In_opt_ PVOID
         SetDiagBinary(key, L"LastReadSpecial", (PVOID)g_Diag.LastReadSpecial, sizeof(g_Diag.LastReadSpecial));
         SetDiagDword(key, L"ReportRingIndex", (ULONG)g_Diag.ReportRingIndex);
         SetDiagBinary(key, L"ReportRing", (PVOID)g_Diag.ReportRing, sizeof(g_Diag.ReportRing));
+        SetDiagDword(key, L"BufferSource", (ULONG)g_Diag.BufferSource);
+        SetDiagDword(key, L"FnSeen", (ULONG)g_Diag.FnSeen);
+        SetDiagDword(key, L"ExtraSeen", (ULONG)g_Diag.ExtraSeen);
+        SetDiagBinary(key, L"ReportRingOut", (PVOID)g_Diag.ReportRingOut, sizeof(g_Diag.ReportRingOut));
         UCHAR raw[16];
         UCHAR special[16];
         RtlCopyMemory(raw, g_Diag.LastRaw, sizeof(raw));
@@ -142,7 +146,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     parameters.Length = 0;
     parameters.MaximumLength = sizeof(pathBuffer);
     if (NT_SUCCESS(RtlAppendUnicodeStringToString(&parameters, RegistryPath)) &&
-        NT_SUCCESS(RtlAppendUnicodeToString(&parameters, L"\Parameters")))
+        NT_SUCCESS(RtlAppendUnicodeToString(&parameters, L"\\Parameters")))
     {
         ReadDriverDword(&parameters, L"EmitFnAsF23", &g_EmitFnAsF23);
     }
@@ -444,11 +448,13 @@ static PUCHAR GetReadBuffer(_In_ PIRP Irp)
 {
     if (Irp->MdlAddress != NULL)
     {
+        InterlockedExchange(&g_Diag.BufferSource, 1);
         return (PUCHAR)MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority | MdlMappingNoExecute);
     }
 
     if (Irp->AssociatedIrp.SystemBuffer != NULL)
     {
+        InterlockedExchange(&g_Diag.BufferSource, 2);
         return (PUCHAR)Irp->AssociatedIrp.SystemBuffer;
     }
 
@@ -456,6 +462,7 @@ static PUCHAR GetReadBuffer(_In_ PIRP Irp)
     // would belong to some other process by the time the read completes.
     if ((ULONG_PTR)Irp->UserBuffer >= (ULONG_PTR)MM_SYSTEM_RANGE_START)
     {
+        InterlockedExchange(&g_Diag.BufferSource, 3);
         return (PUCHAR)Irp->UserBuffer;
     }
 
@@ -488,9 +495,15 @@ NTSTATUS ReadComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ P
             {
                 if (buffer[i] != 0) { nonEmpty = TRUE; break; }
             }
+
+            const UCHAR vendor = buffer[prefix + 8];
+            if (vendor & AppleSpecialFnMask) { InterlockedIncrement(&g_Diag.FnSeen); }
+            if (vendor & ~AppleSpecialFnMask) { InterlockedIncrement(&g_Diag.ExtraSeen); }
+
+            LONG slot = -1;
             if (nonEmpty)
             {
-                LONG slot = (InterlockedIncrement(&g_Diag.ReportRingIndex) - 1) & 31;
+                slot = (InterlockedIncrement(&g_Diag.ReportRingIndex) - 1) & 31;
                 RtlZeroMemory(g_Diag.ReportRing[slot], 10);
                 RtlCopyMemory(g_Diag.ReportRing[slot], buffer, copy < 10 ? copy : 10);
             }
@@ -504,6 +517,15 @@ NTSTATUS ReadComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ P
             if (TryProcessAppleKeyboardTransportBuffer(buffer, size, prefix))
             {
                 InterlockedIncrement(&g_Diag.ReadsProcessed);
+            }
+
+            // Read the buffer back afterwards: if the translation landed here
+            // but the keystroke never arrives, this is not the memory the
+            // caller ends up reading.
+            if (slot >= 0)
+            {
+                RtlZeroMemory(g_Diag.ReportRingOut[slot], 10);
+                RtlCopyMemory(g_Diag.ReportRingOut[slot], buffer, copy < 10 ? copy : 10);
             }
 
             if (special || nonEmpty)

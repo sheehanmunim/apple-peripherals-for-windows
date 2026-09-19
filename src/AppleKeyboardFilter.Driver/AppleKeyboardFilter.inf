@@ -12,7 +12,7 @@ Provider=%Provider%
 CatalogFile=AppleKeyboardFilter.cat
 DriverPackageDisplayName=%DriverPackageDisplayName%
 DriverPackageType=PlugAndPlay
-DriverVer=09/19/2026,0.4.5.0
+DriverVer=09/19/2026,0.4.6.0
 PnpLockdown=1
 
 [ControlFlags]
