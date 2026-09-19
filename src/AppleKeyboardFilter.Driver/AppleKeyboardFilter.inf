@@ -28,6 +28,7 @@ AppleKeyboardFilter.sys=1
 %Manufacturer%=AppleKeyboardFilter,NTamd64,NTarm64
 
 [AppleKeyboardFilter.NTamd64]
+%MagicKeyboard.Touch.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&029C
 %MagicKeyboard.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0320
 %MagicKeyboard.UsbC.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_0321&MI_01
 %MagicKeyboard.Legacy.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0267
@@ -36,6 +37,7 @@ AppleKeyboardFilter.sys=1
 %MagicKeyboard.Numeric.Usb.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_026C&MI_01
 
 [AppleKeyboardFilter.NTarm64]
+%MagicKeyboard.Touch.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&029C
 %MagicKeyboard.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0320
 %MagicKeyboard.UsbC.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_0321&MI_01
 %MagicKeyboard.Legacy.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0267
@@ -94,6 +96,7 @@ Manufacturer="Apple Peripherals for Windows"
 DriverPackageDisplayName="Apple Keyboard Filter"
 DiskName="Apple Keyboard Filter Install Disk"
 ServiceDescription="Apple Keyboard Filter"
+MagicKeyboard.Touch.Bluetooth.DevDesc="Apple Magic Keyboard Touch ID Bluetooth Globe/Fn Filter"
 MagicKeyboard.Bluetooth.DevDesc="Apple Magic Keyboard Bluetooth Globe/Fn Filter"
 MagicKeyboard.UsbC.DevDesc="Apple Magic Keyboard USB-C Globe/Fn Filter"
 MagicKeyboard.Legacy.Bluetooth.DevDesc="Apple Magic Keyboard Bluetooth Globe/Fn Filter"
