@@ -28,6 +28,24 @@ static VOID SetDiagBinary(_In_ HANDLE key, _In_ PCWSTR name, _In_reads_bytes_(le
     ZwSetValueKey(key, &valueName, 0, REG_BINARY, data, length);
 }
 
+static VOID DiagWorkItemRoutine(_In_ PDEVICE_OBJECT DeviceObject, _In_opt_ PVOID Context);
+
+static VOID QueueDiag(_In_ PDEVICE_EXTENSION extension)
+{
+    if (extension->DiagWorkItem != NULL &&
+        InterlockedCompareExchange(&extension->DiagPending, 1, 0) == 0)
+    {
+        if (NT_SUCCESS(IoAcquireRemoveLock(&extension->RemoveLock, &extension->DiagPending)))
+        {
+            IoQueueWorkItem(extension->DiagWorkItem, DiagWorkItemRoutine, DelayedWorkQueue, NULL);
+        }
+        else
+        {
+            InterlockedExchange(&extension->DiagPending, 0);
+        }
+    }
+}
+
 static VOID DiagWorkItemRoutine(_In_ PDEVICE_OBJECT DeviceObject, _In_opt_ PVOID Context)
 {
     UNREFERENCED_PARAMETER(Context);
@@ -53,6 +71,10 @@ static VOID DiagWorkItemRoutine(_In_ PDEVICE_OBJECT DeviceObject, _In_opt_ PVOID
         SetDiagDword(key, L"NoBuffer", (ULONG)g_Diag.NoBuffer);
         SetDiagDword(key, L"Processed", (ULONG)g_Diag.Processed);
         SetDiagDword(key, L"LastSize", (ULONG)g_Diag.LastSize);
+        SetDiagDword(key, L"InternalIoctls", (ULONG)g_Diag.InternalIoctls);
+        SetDiagDword(key, L"OtherIrps", (ULONG)g_Diag.OtherIrps);
+        SetDiagBinary(key, L"MajorCounts", (PVOID)g_Diag.MajorCounts, sizeof(g_Diag.MajorCounts));
+        SetDiagBinary(key, L"Ring", (PVOID)g_Diag.Ring, sizeof(g_Diag.Ring));
         SetDiagBinary(key, L"LastRaw", raw, sizeof(raw));
         SetDiagBinary(key, L"LastSpecialRaw", special, sizeof(special));
         ZwClose(key);
@@ -176,6 +198,16 @@ NTSTATUS DispatchAny(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
     if (!NT_SUCCESS(status))
     {
         return CompleteRequest(Irp, status, 0);
+    }
+
+    UCHAR major = IoGetCurrentIrpStackLocation(Irp)->MajorFunction;
+    if (major < RTL_NUMBER_OF(g_Diag.MajorCounts))
+    {
+        InterlockedIncrement(&g_Diag.MajorCounts[major]);
+    }
+    if ((InterlockedIncrement(&g_Diag.OtherIrps) % 64) == 1)
+    {
+        QueueDiag(extension);
     }
 
     IoSkipCurrentIrpStackLocation(Irp);
@@ -340,18 +372,9 @@ NTSTATUS InternalIoctlComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Ir
                     InterlockedIncrement(&g_Diag.Processed);
                 }
 
-                if ((interesting || completions == 1 || (completions % 32) == 0) &&
-                    extension->DiagWorkItem != NULL &&
-                    InterlockedCompareExchange(&extension->DiagPending, 1, 0) == 0)
+                if (interesting || completions == 1 || (completions % 32) == 0)
                 {
-                    if (NT_SUCCESS(IoAcquireRemoveLock(&extension->RemoveLock, &extension->DiagPending)))
-                    {
-                        IoQueueWorkItem(extension->DiagWorkItem, DiagWorkItemRoutine, DelayedWorkQueue, NULL);
-                    }
-                    else
-                    {
-                        InterlockedExchange(&extension->DiagPending, 0);
-                    }
+                    QueueDiag(extension);
                 }
             }
         }
@@ -396,6 +419,21 @@ NTSTATUS DispatchInternalIoctl(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Ir
     if (!NT_SUCCESS(status))
     {
         return CompleteRequest(Irp, status, 0);
+    }
+
+    {
+        LONG slot = (InterlockedIncrement(&g_Diag.RingIndex) - 1) & 15;
+        ULONG type = 0;
+        if (controlCode == IOCTL_INTERNAL_BTH_SUBMIT_BRB && stack->Parameters.Others.Argument1 != NULL)
+        {
+            type = ((PBRB)stack->Parameters.Others.Argument1)->BrbHeader.Type;
+        }
+        g_Diag.Ring[slot][0] = controlCode;
+        g_Diag.Ring[slot][1] = type;
+        if ((InterlockedIncrement(&g_Diag.InternalIoctls) % 64) == 1)
+        {
+            QueueDiag(extension);
+        }
     }
 
     if (controlCode == IOCTL_INTERNAL_BTH_SUBMIT_BRB)

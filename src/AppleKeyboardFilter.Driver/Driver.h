@@ -69,6 +69,11 @@ typedef struct _APPLE_KBD_DIAG
     volatile LONG LastSize;
     UCHAR LastRaw[16];           // last transport buffer, before translation
     UCHAR LastSpecialRaw[16];    // last one whose byte 1 or byte 8 was non-zero
+    volatile LONG InternalIoctls;    // IRP_MJ_INTERNAL_DEVICE_CONTROL requests seen
+    volatile LONG OtherIrps;         // every other request type seen (DispatchAny)
+    volatile LONG MajorCounts[28];   // DispatchAny requests per major function
+    volatile LONG RingIndex;
+    ULONG Ring[16][2];               // last internal requests: {ioctl code, BRB/URB type}
 } APPLE_KBD_DIAG;
 
 extern APPLE_KBD_DIAG g_Diag;
