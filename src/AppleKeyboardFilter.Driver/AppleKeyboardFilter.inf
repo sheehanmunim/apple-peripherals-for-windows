@@ -2,13 +2,17 @@
 
 [Version]
 Signature="$WINDOWS NT$"
-Class=HIDClass
-ClassGuid={745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+; The filter attaches to the keyboard *collection* (Col01), below kbdhid, where
+; the 10-byte input report still carries the vendor fn/lock bits. Attaching to
+; the Bluetooth transport instead does not work on Windows 11: the interrupt
+; channel data never passes through a lower filter there.
+Class=Keyboard
+ClassGuid={4d36e96b-e325-11ce-bfc1-08002be10318}
 Provider=%Provider%
 CatalogFile=AppleKeyboardFilter.cat
 DriverPackageDisplayName=%DriverPackageDisplayName%
 DriverPackageType=PlugAndPlay
-DriverVer=09/19/2026,0.4.3.0
+DriverVer=09/19/2026,0.4.4.0
 PnpLockdown=1
 
 [ControlFlags]
@@ -28,49 +32,38 @@ AppleKeyboardFilter.sys=1
 %Manufacturer%=AppleKeyboardFilter,NTamd64,NTarm64
 
 [AppleKeyboardFilter.NTamd64]
-%MagicKeyboard.Touch.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&029C
-%MagicKeyboard.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0320
-%MagicKeyboard.UsbC.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_0321&MI_01
-%MagicKeyboard.Legacy.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0267
-%MagicKeyboard.Legacy.Usb.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_0267&MI_01
-%MagicKeyboard.Numeric.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&026C
-%MagicKeyboard.Numeric.Usb.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_026C&MI_01
+%MagicKeyboard.Touch.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&029c&Col01
+%MagicKeyboard.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0320&Col01
+%MagicKeyboard.Legacy.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0267&Col01
+%MagicKeyboard.Numeric.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&026c&Col01
+%MagicKeyboard.UsbC.DevDesc%=Collection_Install,HID\VID_05AC&PID_0321&MI_01&Col01
+%MagicKeyboard.Legacy.Usb.DevDesc%=Collection_Install,HID\VID_05AC&PID_0267&MI_01&Col01
+%MagicKeyboard.Numeric.Usb.DevDesc%=Collection_Install,HID\VID_05AC&PID_026C&MI_01&Col01
 
 [AppleKeyboardFilter.NTarm64]
-%MagicKeyboard.Touch.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&029C
-%MagicKeyboard.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0320
-%MagicKeyboard.UsbC.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_0321&MI_01
-%MagicKeyboard.Legacy.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0267
-%MagicKeyboard.Legacy.Usb.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_0267&MI_01
-%MagicKeyboard.Numeric.Bluetooth.DevDesc%=BthKeyboard_Install,BTHENUM\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&026C
-%MagicKeyboard.Numeric.Usb.DevDesc%=UsbKeyboard_Install,USB\VID_05AC&PID_026C&MI_01
+%MagicKeyboard.Touch.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&029c&Col01
+%MagicKeyboard.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0320&Col01
+%MagicKeyboard.Legacy.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0267&Col01
+%MagicKeyboard.Numeric.Bluetooth.DevDesc%=Collection_Install,HID\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&026c&Col01
+%MagicKeyboard.UsbC.DevDesc%=Collection_Install,HID\VID_05AC&PID_0321&MI_01&Col01
+%MagicKeyboard.Legacy.Usb.DevDesc%=Collection_Install,HID\VID_05AC&PID_0267&MI_01&Col01
+%MagicKeyboard.Numeric.Usb.DevDesc%=Collection_Install,HID\VID_05AC&PID_026C&MI_01&Col01
 
-[UsbKeyboard_Install.NT]
-Include=input.inf
-Needs=HID_Inst.NT
+; kbdhid stays the function driver; this package only inserts the filter
+; beneath it, so the collection keeps behaving as an ordinary HID keyboard.
+[Collection_Install.NT]
+Include=keyboard.inf
+Needs=HID_Keyboard_Inst.NT
 CopyFiles=DriverCopyFiles
 
-[UsbKeyboard_Install.NT.HW]
-AddReg=LowerFilter_AddReg
-
-[UsbKeyboard_Install.NT.Services]
-Include=input.inf
-Needs=HID_Inst.NT.Services
-AddService=AppleKeyboardFilter,,AppleKeyboardFilter_ServiceInstall
-
-[BthKeyboard_Install.NT]
-Include=hidbth.inf
-Needs=HIDBTH_Inst.NT
-CopyFiles=DriverCopyFiles
-
-[BthKeyboard_Install.NT.HW]
+[Collection_Install.NT.HW]
 Include=keyboard.inf
 Needs=HID_Keyboard_Inst.NT.HW
 AddReg=LowerFilter_AddReg
 
-[BthKeyboard_Install.NT.Services]
-Include=hidbth.inf
-Needs=HIDBTH_Inst.NT.Services
+[Collection_Install.NT.Services]
+Include=keyboard.inf
+Needs=HID_Keyboard_Inst.NT.Services
 AddService=AppleKeyboardFilter,,AppleKeyboardFilter_ServiceInstall
 
 [DriverCopyFiles]
