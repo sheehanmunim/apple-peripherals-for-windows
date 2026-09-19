@@ -9,10 +9,35 @@ static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject);
 #pragma alloc_text(PAGE, RemoveDevice)
 #pragma alloc_text(PAGE, GetLowerDeviceType)
 #pragma alloc_text(PAGE, ReadDriverDword)
+#pragma alloc_text(PAGE, ReadFilterConfiguration)
 #endif
 
 ULONG g_EmitFnAsF23 = 1;
+ULONG g_DiagEnabled = 0;   // per-report bookkeeping; off unless explicitly turned on
 APPLE_KBD_DIAG g_Diag;
+
+// Defaults: fn acts as left Control, the lock key as forward Delete, and the
+// ISO key swap on, which is what this keyboard needs out of the box.
+ULONG g_FnModifier = HidLeftCtrlMask;
+ULONG g_FnUsage = 0;
+ULONG g_LockModifier = 0;
+ULONG g_LockUsage = HidDeleteForward;
+ULONG g_SwapIsoKeys = 1;
+
+VOID ReadFilterConfiguration(VOID)
+{
+    PAGED_CODE();
+
+    UNICODE_STRING path;
+    RtlInitUnicodeString(&path, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\AppleKeyboardFilter\\Parameters");
+
+    ReadDriverDword(&path, L"FnModifier", &g_FnModifier);
+    ReadDriverDword(&path, L"FnUsage", &g_FnUsage);
+    ReadDriverDword(&path, L"LockModifier", &g_LockModifier);
+    ReadDriverDword(&path, L"LockUsage", &g_LockUsage);
+    ReadDriverDword(&path, L"SwapIsoKeys", &g_SwapIsoKeys);
+    ReadDriverDword(&path, L"Diagnostics", &g_DiagEnabled);
+}
 
 static VOID SetDiagDword(_In_ HANDLE key, _In_ PCWSTR name, _In_ ULONG value)
 {
@@ -150,6 +175,8 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     {
         ReadDriverDword(&parameters, L"EmitFnAsF23", &g_EmitFnAsF23);
     }
+
+    ReadFilterConfiguration();
     return STATUS_SUCCESS;
 }
 
@@ -163,6 +190,9 @@ VOID DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 NTSTATUS AddDevice(_In_ PDRIVER_OBJECT DriverObject, _In_ PDEVICE_OBJECT Pdo)
 {
     PAGED_CODE();
+
+    // Picks up any change the settings app has written since the last start.
+    ReadFilterConfiguration();
 
     PDEVICE_OBJECT filterDevice = NULL;
     NTSTATUS status = IoCreateDevice(
@@ -496,6 +526,8 @@ NTSTATUS ReadComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ P
                 if (buffer[i] != 0) { nonEmpty = TRUE; break; }
             }
 
+            if (!g_DiagEnabled) { TryProcessAppleKeyboardTransportBuffer(buffer, size, prefix); goto done; }
+
             const UCHAR vendor = buffer[prefix + 8];
             if (vendor & AppleSpecialFnMask) { InterlockedIncrement(&g_Diag.FnSeen); }
             if (vendor & ~AppleSpecialFnMask) { InterlockedIncrement(&g_Diag.ExtraSeen); }
@@ -535,6 +567,7 @@ NTSTATUS ReadComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ P
         }
     }
 
+done:
     if (Irp->PendingReturned)
     {
         IoMarkIrpPending(Irp);

@@ -23,7 +23,7 @@ static VOID AddKeySlot(_Inout_updates_(6) PUCHAR keySlots, _In_ UCHAR hidUsage)
 
 VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ ULONG Size)
 {
-    if (Report == NULL || Size < 9 || !g_EmitFnAsF23)
+    if (Report == NULL || Size < 9)
     {
         return;
     }
@@ -32,22 +32,46 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
     PUCHAR keySlots = &Report[2];
     PUCHAR specialKey = &Report[8];
 
-    // fn becomes a real Left Control: a modifier bit, not a key slot, so
-    // fn+key combinations arrive as Ctrl+key.
+    // fn and the lock key are vendor bits Windows discards. Turn each one into
+    // a modifier bit, a key slot, or both, according to the configuration.
     if ((*specialKey & AppleSpecialFnMask) != 0)
     {
-        *modifiers |= HidLeftCtrlMask;
+        *modifiers |= (UCHAR)g_FnModifier;
+        if (g_FnUsage != 0)
+        {
+            AddKeySlot(keySlots, (UCHAR)g_FnUsage);
+        }
     }
 
-    // The lock key becomes forward Delete (Supr).
     if ((*specialKey & AppleSpecialLockMask) != 0)
     {
-        AddKeySlot(keySlots, HidDeleteForward);
+        *modifiers |= (UCHAR)g_LockModifier;
+        if (g_LockUsage != 0)
+        {
+            AddKeySlot(keySlots, (UCHAR)g_LockUsage);
+        }
     }
 
-    // Windows discards the vendor byte anyway; clear it so nothing downstream
-    // sees a partially handled report.
+    // Nothing downstream understands the vendor byte, so clear it.
     *specialKey = 0;
+
+    // Apple's ISO layout sends the key below Esc and the key beside left Shift
+    // the other way round from what Windows expects, which is what puts | and <
+    // on the wrong keys.
+    if (g_SwapIsoKeys)
+    {
+        for (ULONG index = 0; index < 6; index++)
+        {
+            if (keySlots[index] == HidGraveAccent)
+            {
+                keySlots[index] = HidNonUsBackslash;
+            }
+            else if (keySlots[index] == HidNonUsBackslash)
+            {
+                keySlots[index] = HidGraveAccent;
+            }
+        }
+    }
 }
 
 BOOLEAN TryProcessAppleKeyboardTransportBuffer(_Inout_updates_bytes_(Size) PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes)

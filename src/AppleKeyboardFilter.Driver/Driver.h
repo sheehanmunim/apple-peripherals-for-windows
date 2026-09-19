@@ -28,6 +28,17 @@ extern "C" {
 #endif
 
 extern ULONG g_EmitFnAsF23;
+extern ULONG g_DiagEnabled;
+
+// Configurable from HKLM\SYSTEM\CurrentControlSet\Services\AppleKeyboardFilter\Parameters,
+// re-read whenever the device is restarted, so no reboot is needed to change them.
+extern ULONG g_FnModifier;    // modifier bits fn contributes (0x01 = left Ctrl)
+extern ULONG g_FnUsage;       // HID usage fn sends, or 0 for none
+extern ULONG g_LockModifier;  // modifier bits the lock key contributes
+extern ULONG g_LockUsage;     // HID usage the lock key sends, or 0 for none
+extern ULONG g_SwapIsoKeys;   // swap the ISO keys either side of the top-left corner
+
+VOID ReadFilterConfiguration(VOID);
 
 enum AppleKeyboardHidCodes
 {
@@ -55,6 +66,8 @@ enum AppleKeyboardHidMasks
 enum AppleKeyboardInRangeCodes
 {
     HidDeleteForward = 0x4C,
+    HidGraveAccent = 0x35,
+    HidNonUsBackslash = 0x64,
 };
 
 typedef struct _DEVICE_EXTENSION
