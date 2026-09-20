@@ -40,6 +40,23 @@ extern ULONG g_EjectModifier; // modifier bits the eject key contributes
 extern ULONG g_EjectUsage;    // HID usage the eject key sends, or 0 for none
 extern ULONG g_SwapIsoKeys;   // swap the ISO keys either side of the top-left corner
 
+// General remapping, as four lookup tables. A key arrives either as a usage
+// in one of the six key slots or as a bit in the modifier byte, and can be
+// turned into either, so all four directions need covering.
+//
+//   UsageToUsage[u]       0 = unchanged, kDisabled = swallow, else new usage
+//   UsageToModifier[u]    0 = none, else modifier bits this usage sets instead
+//   ModifierToModifier[b] 0 = unchanged, kDisabled = swallow, else new mask
+//   ModifierToUsage[b]    0 = none, else the usage this modifier sends instead
+//
+// b is the bit index 0..7 of the modifier byte (0 = left Control).
+#define WB_DISABLED 0xFF
+
+extern UCHAR g_UsageToUsage[256];
+extern UCHAR g_UsageToModifier[256];
+extern UCHAR g_ModifierToModifier[8];
+extern UCHAR g_ModifierToUsage[8];
+
 VOID ReadFilterConfiguration(VOID);
 
 enum AppleKeyboardHidCodes
@@ -137,6 +154,7 @@ NTSTATUS CompleteRequest(_Inout_ PIRP Irp, _In_ NTSTATUS Status, _In_ ULONG_PTR 
 ULONG GetLowerDeviceType(_In_ PDEVICE_OBJECT Pdo);
 NTSTATUS ReadDriverDword(_In_ PUNICODE_STRING RegistryPath, _In_ PCWSTR ValueName, _Inout_ PULONG Value);
 VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ ULONG Size);
+VOID ApplyRemapTables(_Inout_ PUCHAR Modifiers, _Inout_updates_(6) PUCHAR KeySlots);
 BOOLEAN TryProcessAppleKeyboardTransportBuffer(_Inout_updates_bytes_(Size) PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes);
 
 #ifdef __cplusplus

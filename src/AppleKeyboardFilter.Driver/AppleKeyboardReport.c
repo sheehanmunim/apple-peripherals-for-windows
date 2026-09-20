@@ -82,6 +82,76 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
             }
         }
     }
+
+    ApplyRemapTables(modifiers, keySlots);
+}
+
+// The general key remapping. Modifiers are read from a snapshot so a mapping
+// cannot cascade into one made earlier in the same report, and new key slots
+// are collected separately for the same reason.
+VOID ApplyRemapTables(_Inout_ PUCHAR Modifiers, _Inout_updates_(6) PUCHAR KeySlots)
+{
+    const UCHAR originalModifiers = *Modifiers;
+    UCHAR newModifiers = 0;
+    UCHAR added[6] = { 0 };
+    ULONG addedCount = 0;
+
+    for (ULONG bit = 0; bit < 8; bit++)
+    {
+        const UCHAR mask = (UCHAR)(1u << bit);
+        if ((originalModifiers & mask) == 0)
+        {
+            continue;
+        }
+
+        const UCHAR toModifier = g_ModifierToModifier[bit];
+        const UCHAR toUsage = g_ModifierToUsage[bit];
+
+        if (toUsage != 0 && addedCount < RTL_NUMBER_OF(added))
+        {
+            added[addedCount++] = toUsage;
+        }
+
+        if (toModifier == WB_DISABLED)
+        {
+            continue;               // swallowed
+        }
+        newModifiers |= (toModifier != 0) ? toModifier : mask;
+    }
+
+    *Modifiers = newModifiers;
+
+    for (ULONG index = 0; index < 6; index++)
+    {
+        const UCHAR usage = KeySlots[index];
+        if (usage == HidKeyNone)
+        {
+            continue;
+        }
+
+        const UCHAR toModifier = g_UsageToModifier[usage];
+        if (toModifier != 0)
+        {
+            *Modifiers |= toModifier;
+            KeySlots[index] = HidKeyNone;
+            continue;
+        }
+
+        const UCHAR toUsage = g_UsageToUsage[usage];
+        if (toUsage == WB_DISABLED)
+        {
+            KeySlots[index] = HidKeyNone;
+        }
+        else if (toUsage != 0)
+        {
+            KeySlots[index] = toUsage;
+        }
+    }
+
+    for (ULONG i = 0; i < addedCount; i++)
+    {
+        AddKeySlot(KeySlots, added[i]);
+    }
 }
 
 BOOLEAN TryProcessAppleKeyboardTransportBuffer(_Inout_updates_bytes_(Size) PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes)

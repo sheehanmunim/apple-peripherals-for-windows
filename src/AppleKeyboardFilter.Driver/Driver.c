@@ -26,12 +26,63 @@ ULONG g_EjectModifier = 0;
 ULONG g_EjectUsage = HidDeleteForward;
 ULONG g_SwapIsoKeys = 1;
 
+UCHAR g_UsageToUsage[256];
+UCHAR g_UsageToModifier[256];
+UCHAR g_ModifierToModifier[8];
+UCHAR g_ModifierToUsage[8];
+
+// Reads a REG_BINARY of exactly `length` bytes, leaving the buffer untouched
+// if the value is missing or a different size.
+static VOID ReadDriverBinary(_In_ PUNICODE_STRING RegistryPath, _In_ PCWSTR ValueName,
+                             _Out_writes_bytes_(Length) PUCHAR Buffer, _In_ ULONG Length)
+{
+    PAGED_CODE();
+
+    OBJECT_ATTRIBUTES attributes;
+    InitializeObjectAttributes(&attributes, RegistryPath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+
+    HANDLE key = NULL;
+    if (!NT_SUCCESS(ZwOpenKey(&key, KEY_READ, &attributes)))
+    {
+        return;
+    }
+
+    UNICODE_STRING valueName;
+    RtlInitUnicodeString(&valueName, ValueName);
+
+    const ULONG size = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + Length;
+    PKEY_VALUE_PARTIAL_INFORMATION value =
+        (PKEY_VALUE_PARTIAL_INFORMATION)ExAllocatePool2(POOL_FLAG_PAGED, size, 'bdWB');
+    if (value != NULL)
+    {
+        ULONG resultLength = 0;
+        if (NT_SUCCESS(ZwQueryValueKey(key, &valueName, KeyValuePartialInformation, value, size, &resultLength)) &&
+            value->Type == REG_BINARY && value->DataLength == Length)
+        {
+            RtlCopyMemory(Buffer, value->Data, Length);
+        }
+        ExFreePool(value);
+    }
+
+    ZwClose(key);
+}
+
 VOID ReadFilterConfiguration(VOID)
 {
     PAGED_CODE();
 
     UNICODE_STRING path;
     RtlInitUnicodeString(&path, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\AppleKeyboardFilter\\Parameters");
+
+    // Absent values leave the tables zeroed, which means "change nothing".
+    RtlZeroMemory(g_UsageToUsage, sizeof(g_UsageToUsage));
+    RtlZeroMemory(g_UsageToModifier, sizeof(g_UsageToModifier));
+    RtlZeroMemory(g_ModifierToModifier, sizeof(g_ModifierToModifier));
+    RtlZeroMemory(g_ModifierToUsage, sizeof(g_ModifierToUsage));
+    ReadDriverBinary(&path, L"UsageToUsage", g_UsageToUsage, sizeof(g_UsageToUsage));
+    ReadDriverBinary(&path, L"UsageToModifier", g_UsageToModifier, sizeof(g_UsageToModifier));
+    ReadDriverBinary(&path, L"ModifierToModifier", g_ModifierToModifier, sizeof(g_ModifierToModifier));
+    ReadDriverBinary(&path, L"ModifierToUsage", g_ModifierToUsage, sizeof(g_ModifierToUsage));
 
     ReadDriverDword(&path, L"FnModifier", &g_FnModifier);
     ReadDriverDword(&path, L"FnUsage", &g_FnUsage);
