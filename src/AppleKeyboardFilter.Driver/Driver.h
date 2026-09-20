@@ -36,6 +36,8 @@ extern ULONG g_FnModifier;    // modifier bits fn contributes (0x01 = left Ctrl)
 extern ULONG g_FnUsage;       // HID usage fn sends, or 0 for none
 extern ULONG g_LockModifier;  // modifier bits the lock key contributes
 extern ULONG g_LockUsage;     // HID usage the lock key sends, or 0 for none
+extern ULONG g_EjectModifier; // modifier bits the eject key contributes
+extern ULONG g_EjectUsage;    // HID usage the eject key sends, or 0 for none
 extern ULONG g_SwapIsoKeys;   // swap the ISO keys either side of the top-left corner
 
 VOID ReadFilterConfiguration(VOID);
@@ -55,6 +57,7 @@ enum AppleKeyboardHidCodes
 
 enum AppleKeyboardHidMasks
 {
+    AppleSpecialEjectMask = 0x01,
     AppleSpecialFnMask = 0x02,
     AppleSpecialLockMask = 0x08,
     HidLeftCtrlMask = 0x01,

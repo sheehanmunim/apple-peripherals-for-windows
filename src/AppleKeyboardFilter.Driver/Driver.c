@@ -22,6 +22,8 @@ ULONG g_FnModifier = HidLeftCtrlMask;
 ULONG g_FnUsage = 0;
 ULONG g_LockModifier = 0;
 ULONG g_LockUsage = HidDeleteForward;
+ULONG g_EjectModifier = 0;
+ULONG g_EjectUsage = HidDeleteForward;
 ULONG g_SwapIsoKeys = 1;
 
 VOID ReadFilterConfiguration(VOID)
@@ -35,6 +37,8 @@ VOID ReadFilterConfiguration(VOID)
     ReadDriverDword(&path, L"FnUsage", &g_FnUsage);
     ReadDriverDword(&path, L"LockModifier", &g_LockModifier);
     ReadDriverDword(&path, L"LockUsage", &g_LockUsage);
+    ReadDriverDword(&path, L"EjectModifier", &g_EjectModifier);
+    ReadDriverDword(&path, L"EjectUsage", &g_EjectUsage);
     ReadDriverDword(&path, L"SwapIsoKeys", &g_SwapIsoKeys);
     ReadDriverDword(&path, L"Diagnostics", &g_DiagEnabled);
 }

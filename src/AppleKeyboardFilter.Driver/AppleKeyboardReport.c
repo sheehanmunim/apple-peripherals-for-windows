@@ -52,6 +52,16 @@ VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ 
         }
     }
 
+    // Eject, on the keyboards that have one instead of a lock key.
+    if ((*specialKey & AppleSpecialEjectMask) != 0)
+    {
+        *modifiers |= (UCHAR)g_EjectModifier;
+        if (g_EjectUsage != 0)
+        {
+            AddKeySlot(keySlots, (UCHAR)g_EjectUsage);
+        }
+    }
+
     // Nothing downstream understands the vendor byte, so clear it.
     *specialKey = 0;
 
