@@ -28,16 +28,66 @@ extern "C" {
 #endif
 
 extern ULONG g_EmitFnAsF23;
+extern ULONG g_DiagEnabled;
+
+// Configurable from HKLM\SYSTEM\CurrentControlSet\Services\AppleKeyboardFilter\Parameters,
+// re-read whenever the device is restarted, so no reboot is needed to change them.
+extern ULONG g_FnModifier;    // modifier bits fn contributes (0x01 = left Ctrl)
+extern ULONG g_FnUsage;       // HID usage fn sends, or 0 for none
+extern ULONG g_LockModifier;  // modifier bits the lock key contributes
+extern ULONG g_LockUsage;     // HID usage the lock key sends, or 0 for none
+extern ULONG g_EjectModifier; // modifier bits the eject key contributes
+extern ULONG g_EjectUsage;    // HID usage the eject key sends, or 0 for none
+extern ULONG g_SwapIsoKeys;   // swap the ISO keys either side of the top-left corner
+
+// General remapping, as four lookup tables. A key arrives either as a usage
+// in one of the six key slots or as a bit in the modifier byte, and can be
+// turned into either, so all four directions need covering.
+//
+//   UsageToUsage[u]       0 = unchanged, kDisabled = swallow, else new usage
+//   UsageToModifier[u]    0 = none, else modifier bits this usage sets instead
+//   ModifierToModifier[b] 0 = unchanged, kDisabled = swallow, else new mask
+//   ModifierToUsage[b]    0 = none, else the usage this modifier sends instead
+//
+// b is the bit index 0..7 of the modifier byte (0 = left Control).
+#define WB_DISABLED 0xFF
+
+extern UCHAR g_UsageToUsage[256];
+extern UCHAR g_UsageToModifier[256];
+extern UCHAR g_ModifierToModifier[8];
+extern UCHAR g_ModifierToUsage[8];
+
+VOID ReadFilterConfiguration(VOID);
 
 enum AppleKeyboardHidCodes
 {
     HidKeyNone = 0x00,
+    HidF13 = 0x68,
+    HidF14 = 0x69,
+    HidF15 = 0x6A,
+    HidF16 = 0x6B,
+    HidF17 = 0x6C,
+    HidF18 = 0x6D,
+    HidF19 = 0x6E,
     HidF23 = 0x72,
 };
 
 enum AppleKeyboardHidMasks
 {
+    AppleSpecialEjectMask = 0x01,
     AppleSpecialFnMask = 0x02,
+    AppleSpecialLockMask = 0x08,
+    HidLeftCtrlMask = 0x01,
+};
+
+// This keyboard's report descriptor declares the key array as usages
+// 0x00..0x65, so anything above that (F13..F24 at 0x68..0x73) is discarded by
+// the HID parser as out of range. Only in-range usages can be injected.
+enum AppleKeyboardInRangeCodes
+{
+    HidDeleteForward = 0x4C,
+    HidGraveAccent = 0x35,
+    HidNonUsBackslash = 0x64,
 };
 
 typedef struct _DEVICE_EXTENSION
@@ -46,7 +96,45 @@ typedef struct _DEVICE_EXTENSION
     PDEVICE_OBJECT LowerDeviceObject;
     PDEVICE_OBJECT Pdo;
     IO_REMOVE_LOCK RemoveLock;
+    PIO_WORKITEM DiagWorkItem;
+    volatile LONG DiagPending;
 } DEVICE_EXTENSION, *PDEVICE_EXTENSION;
+
+// Diagnostics: what the Bluetooth read path actually delivers. Written to
+// HKLM\SYSTEM\CurrentControlSet\Services\AppleKeyboardFilter\Diag by a work item.
+typedef struct _APPLE_KBD_DIAG
+{
+    volatile LONG Completions;   // BRB_L2CA_ACL_TRANSFER completions seen
+    volatile LONG WithBuffer;    // ... that had a plain Buffer
+    volatile LONG WithMdl;       // ... that only had an MDL
+    volatile LONG NoBuffer;      // ... that had neither
+    volatile LONG Processed;     // reports handed to the F23/lock translation
+    volatile LONG LastSize;
+    UCHAR LastRaw[16];           // last transport buffer, before translation
+    UCHAR LastSpecialRaw[16];    // last one whose byte 1 or byte 8 was non-zero
+    volatile LONG InternalIoctls;    // IRP_MJ_INTERNAL_DEVICE_CONTROL requests seen
+    volatile LONG OtherIrps;         // every other request type seen (DispatchAny)
+    volatile LONG MajorCounts[28];   // DispatchAny requests per major function
+    volatile LONG RingIndex;
+    volatile LONG PnpIrps;
+    volatile LONG PowerIrps;
+    volatile LONG StartCompletions;
+    volatile LONG WorkItemRuns;
+    volatile LONG Reads;           // IRP_MJ_READ completions from the HID collection
+    volatile LONG ReadsWithData;   // ... that carried a full keyboard report
+    volatile LONG ReadsProcessed;  // ... that went through the fn/lock translation
+    UCHAR LastReadRaw[16];         // last report read, before translation
+    UCHAR LastReadSpecial[16];     // last one whose vendor byte was non-zero
+    volatile LONG ReportRingIndex;   // next slot to write in ReportRing
+    UCHAR ReportRing[32][10];        // last non-empty reports, before translation
+    UCHAR ReportRingOut[32][10];     // the same reports after translation
+    volatile LONG BufferSource;      // 1 = MDL, 2 = system buffer, 3 = user buffer
+    volatile LONG FnSeen;            // reports whose vendor byte had the fn bit
+    volatile LONG ExtraSeen;         // reports whose vendor byte had any other bit
+    ULONG Ring[16][2];               // last internal requests: {ioctl code, BRB/URB type}
+} APPLE_KBD_DIAG;
+
+extern APPLE_KBD_DIAG g_Diag;
 
 DRIVER_INITIALIZE DriverEntry;
 DRIVER_UNLOAD DriverUnload;
@@ -56,6 +144,8 @@ NTSTATUS DispatchAny(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
 NTSTATUS DispatchPower(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
 NTSTATUS DispatchPnp(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
 NTSTATUS DispatchInternalIoctl(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
+NTSTATUS DispatchRead(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp);
+NTSTATUS ReadComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context);
 NTSTATUS InternalIoctlComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context);
 NTSTATUS StartDeviceComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context);
 NTSTATUS UsageNotificationComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context);
@@ -64,6 +154,7 @@ NTSTATUS CompleteRequest(_Inout_ PIRP Irp, _In_ NTSTATUS Status, _In_ ULONG_PTR 
 ULONG GetLowerDeviceType(_In_ PDEVICE_OBJECT Pdo);
 NTSTATUS ReadDriverDword(_In_ PUNICODE_STRING RegistryPath, _In_ PCWSTR ValueName, _Inout_ PULONG Value);
 VOID ProcessAppleKeyboardReport(_Inout_updates_bytes_(Size) PUCHAR Report, _In_ ULONG Size);
+VOID ApplyRemapTables(_Inout_ PUCHAR Modifiers, _Inout_updates_(6) PUCHAR KeySlots);
 BOOLEAN TryProcessAppleKeyboardTransportBuffer(_Inout_updates_bytes_(Size) PUCHAR Buffer, _In_ ULONG Size, _In_ ULONG PrefixBytes);
 
 #ifdef __cplusplus

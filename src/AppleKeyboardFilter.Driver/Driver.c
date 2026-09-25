@@ -9,9 +9,176 @@ static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject);
 #pragma alloc_text(PAGE, RemoveDevice)
 #pragma alloc_text(PAGE, GetLowerDeviceType)
 #pragma alloc_text(PAGE, ReadDriverDword)
+#pragma alloc_text(PAGE, ReadFilterConfiguration)
 #endif
 
 ULONG g_EmitFnAsF23 = 1;
+ULONG g_DiagEnabled = 0;   // per-report bookkeeping; off unless explicitly turned on
+APPLE_KBD_DIAG g_Diag;
+
+// Defaults: fn acts as left Control, the lock key as forward Delete, and the
+// ISO key swap on, which is what this keyboard needs out of the box.
+ULONG g_FnModifier = HidLeftCtrlMask;
+ULONG g_FnUsage = 0;
+ULONG g_LockModifier = 0;
+ULONG g_LockUsage = HidDeleteForward;
+ULONG g_EjectModifier = 0;
+ULONG g_EjectUsage = HidDeleteForward;
+ULONG g_SwapIsoKeys = 1;
+
+UCHAR g_UsageToUsage[256];
+UCHAR g_UsageToModifier[256];
+UCHAR g_ModifierToModifier[8];
+UCHAR g_ModifierToUsage[8];
+
+// Reads a REG_BINARY of exactly `length` bytes, leaving the buffer untouched
+// if the value is missing or a different size.
+static VOID ReadDriverBinary(_In_ PUNICODE_STRING RegistryPath, _In_ PCWSTR ValueName,
+                             _Out_writes_bytes_(Length) PUCHAR Buffer, _In_ ULONG Length)
+{
+    PAGED_CODE();
+
+    OBJECT_ATTRIBUTES attributes;
+    InitializeObjectAttributes(&attributes, RegistryPath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+
+    HANDLE key = NULL;
+    if (!NT_SUCCESS(ZwOpenKey(&key, KEY_READ, &attributes)))
+    {
+        return;
+    }
+
+    UNICODE_STRING valueName;
+    RtlInitUnicodeString(&valueName, ValueName);
+
+    const ULONG size = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + Length;
+    PKEY_VALUE_PARTIAL_INFORMATION value =
+        (PKEY_VALUE_PARTIAL_INFORMATION)ExAllocatePool2(POOL_FLAG_PAGED, size, 'bdWB');
+    if (value != NULL)
+    {
+        ULONG resultLength = 0;
+        if (NT_SUCCESS(ZwQueryValueKey(key, &valueName, KeyValuePartialInformation, value, size, &resultLength)) &&
+            value->Type == REG_BINARY && value->DataLength == Length)
+        {
+            RtlCopyMemory(Buffer, value->Data, Length);
+        }
+        ExFreePool(value);
+    }
+
+    ZwClose(key);
+}
+
+VOID ReadFilterConfiguration(VOID)
+{
+    PAGED_CODE();
+
+    UNICODE_STRING path;
+    RtlInitUnicodeString(&path, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\AppleKeyboardFilter\\Parameters");
+
+    // Absent values leave the tables zeroed, which means "change nothing".
+    RtlZeroMemory(g_UsageToUsage, sizeof(g_UsageToUsage));
+    RtlZeroMemory(g_UsageToModifier, sizeof(g_UsageToModifier));
+    RtlZeroMemory(g_ModifierToModifier, sizeof(g_ModifierToModifier));
+    RtlZeroMemory(g_ModifierToUsage, sizeof(g_ModifierToUsage));
+    ReadDriverBinary(&path, L"UsageToUsage", g_UsageToUsage, sizeof(g_UsageToUsage));
+    ReadDriverBinary(&path, L"UsageToModifier", g_UsageToModifier, sizeof(g_UsageToModifier));
+    ReadDriverBinary(&path, L"ModifierToModifier", g_ModifierToModifier, sizeof(g_ModifierToModifier));
+    ReadDriverBinary(&path, L"ModifierToUsage", g_ModifierToUsage, sizeof(g_ModifierToUsage));
+
+    ReadDriverDword(&path, L"FnModifier", &g_FnModifier);
+    ReadDriverDword(&path, L"FnUsage", &g_FnUsage);
+    ReadDriverDword(&path, L"LockModifier", &g_LockModifier);
+    ReadDriverDword(&path, L"LockUsage", &g_LockUsage);
+    ReadDriverDword(&path, L"EjectModifier", &g_EjectModifier);
+    ReadDriverDword(&path, L"EjectUsage", &g_EjectUsage);
+    ReadDriverDword(&path, L"SwapIsoKeys", &g_SwapIsoKeys);
+    ReadDriverDword(&path, L"Diagnostics", &g_DiagEnabled);
+}
+
+static VOID SetDiagDword(_In_ HANDLE key, _In_ PCWSTR name, _In_ ULONG value)
+{
+    UNICODE_STRING valueName;
+    RtlInitUnicodeString(&valueName, name);
+    ZwSetValueKey(key, &valueName, 0, REG_DWORD, &value, sizeof(value));
+}
+
+static VOID SetDiagBinary(_In_ HANDLE key, _In_ PCWSTR name, _In_reads_bytes_(length) PVOID data, _In_ ULONG length)
+{
+    UNICODE_STRING valueName;
+    RtlInitUnicodeString(&valueName, name);
+    ZwSetValueKey(key, &valueName, 0, REG_BINARY, data, length);
+}
+
+static VOID DiagWorkItemRoutine(_In_ PDEVICE_OBJECT DeviceObject, _In_opt_ PVOID Context);
+
+static VOID QueueDiag(_In_ PDEVICE_EXTENSION extension)
+{
+    if (extension->DiagWorkItem != NULL &&
+        InterlockedCompareExchange(&extension->DiagPending, 1, 0) == 0)
+    {
+        if (NT_SUCCESS(IoAcquireRemoveLock(&extension->RemoveLock, &extension->DiagPending)))
+        {
+            IoQueueWorkItem(extension->DiagWorkItem, DiagWorkItemRoutine, DelayedWorkQueue, NULL);
+        }
+        else
+        {
+            InterlockedExchange(&extension->DiagPending, 0);
+        }
+    }
+}
+
+static VOID DiagWorkItemRoutine(_In_ PDEVICE_OBJECT DeviceObject, _In_opt_ PVOID Context)
+{
+    UNREFERENCED_PARAMETER(Context);
+    PDEVICE_EXTENSION extension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
+
+    UNICODE_STRING path;
+    RtlInitUnicodeString(&path, L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Services\\AppleKeyboardFilter");
+    OBJECT_ATTRIBUTES attributes;
+    InitializeObjectAttributes(&attributes, &path, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+
+    HANDLE key = NULL;
+    InterlockedIncrement(&g_Diag.WorkItemRuns);
+    NTSTATUS openStatus = ZwOpenKey(&key, KEY_SET_VALUE, &attributes);
+    if (NT_SUCCESS(openStatus))
+    {
+        SetDiagDword(key, L"DiagWorkItemRuns", (ULONG)g_Diag.WorkItemRuns);
+        SetDiagDword(key, L"DiagPnpIrps", (ULONG)g_Diag.PnpIrps);
+        SetDiagDword(key, L"DiagPowerIrps", (ULONG)g_Diag.PowerIrps);
+        SetDiagDword(key, L"DiagStartCompletions", (ULONG)g_Diag.StartCompletions);
+        SetDiagDword(key, L"Reads", (ULONG)g_Diag.Reads);
+        SetDiagDword(key, L"ReadsWithData", (ULONG)g_Diag.ReadsWithData);
+        SetDiagDword(key, L"ReadsProcessed", (ULONG)g_Diag.ReadsProcessed);
+        SetDiagBinary(key, L"LastReadRaw", (PVOID)g_Diag.LastReadRaw, sizeof(g_Diag.LastReadRaw));
+        SetDiagBinary(key, L"LastReadSpecial", (PVOID)g_Diag.LastReadSpecial, sizeof(g_Diag.LastReadSpecial));
+        SetDiagDword(key, L"ReportRingIndex", (ULONG)g_Diag.ReportRingIndex);
+        SetDiagBinary(key, L"ReportRing", (PVOID)g_Diag.ReportRing, sizeof(g_Diag.ReportRing));
+        SetDiagDword(key, L"BufferSource", (ULONG)g_Diag.BufferSource);
+        SetDiagDword(key, L"FnSeen", (ULONG)g_Diag.FnSeen);
+        SetDiagDword(key, L"ExtraSeen", (ULONG)g_Diag.ExtraSeen);
+        SetDiagBinary(key, L"ReportRingOut", (PVOID)g_Diag.ReportRingOut, sizeof(g_Diag.ReportRingOut));
+        UCHAR raw[16];
+        UCHAR special[16];
+        RtlCopyMemory(raw, g_Diag.LastRaw, sizeof(raw));
+        RtlCopyMemory(special, g_Diag.LastSpecialRaw, sizeof(special));
+
+        SetDiagDword(key, L"Completions", (ULONG)g_Diag.Completions);
+        SetDiagDword(key, L"WithBuffer", (ULONG)g_Diag.WithBuffer);
+        SetDiagDword(key, L"WithMdl", (ULONG)g_Diag.WithMdl);
+        SetDiagDword(key, L"NoBuffer", (ULONG)g_Diag.NoBuffer);
+        SetDiagDword(key, L"Processed", (ULONG)g_Diag.Processed);
+        SetDiagDword(key, L"LastSize", (ULONG)g_Diag.LastSize);
+        SetDiagDword(key, L"InternalIoctls", (ULONG)g_Diag.InternalIoctls);
+        SetDiagDword(key, L"OtherIrps", (ULONG)g_Diag.OtherIrps);
+        SetDiagBinary(key, L"MajorCounts", (PVOID)g_Diag.MajorCounts, sizeof(g_Diag.MajorCounts));
+        SetDiagBinary(key, L"Ring", (PVOID)g_Diag.Ring, sizeof(g_Diag.Ring));
+        SetDiagBinary(key, L"LastRaw", raw, sizeof(raw));
+        SetDiagBinary(key, L"LastSpecialRaw", special, sizeof(special));
+        ZwClose(key);
+    }
+
+    InterlockedExchange(&extension->DiagPending, 0);
+    IoReleaseRemoveLock(&extension->RemoveLock, &extension->DiagPending);
+}
 
 static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject)
 {
@@ -21,6 +188,12 @@ static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject)
     if (extension->LowerDeviceObject != NULL)
     {
         IoDetachDevice(extension->LowerDeviceObject);
+    }
+
+    if (extension->DiagWorkItem != NULL)
+    {
+        IoFreeWorkItem(extension->DiagWorkItem);
+        extension->DiagWorkItem = NULL;
     }
 
     IoDeleteDevice(DeviceObject);
@@ -42,7 +215,23 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     DriverObject->MajorFunction[IRP_MJ_PNP] = DispatchPnp;
     DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = DispatchInternalIoctl;
 
-    ReadDriverDword(RegistryPath, L"EmitFnAsF23", &g_EmitFnAsF23);
+    // When the filter is attached to the HID keyboard collection instead of the
+    // Bluetooth transport, the reports arrive as ordinary reads from kbdhid.
+    DriverObject->MajorFunction[IRP_MJ_READ] = DispatchRead;
+
+    // The tunable lives under the service's Parameters subkey (InfVerif 1323).
+    WCHAR pathBuffer[512];
+    UNICODE_STRING parameters;
+    parameters.Buffer = pathBuffer;
+    parameters.Length = 0;
+    parameters.MaximumLength = sizeof(pathBuffer);
+    if (NT_SUCCESS(RtlAppendUnicodeStringToString(&parameters, RegistryPath)) &&
+        NT_SUCCESS(RtlAppendUnicodeToString(&parameters, L"\\Parameters")))
+    {
+        ReadDriverDword(&parameters, L"EmitFnAsF23", &g_EmitFnAsF23);
+    }
+
+    ReadFilterConfiguration();
     return STATUS_SUCCESS;
 }
 
@@ -56,6 +245,9 @@ VOID DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 NTSTATUS AddDevice(_In_ PDRIVER_OBJECT DriverObject, _In_ PDEVICE_OBJECT Pdo)
 {
     PAGED_CODE();
+
+    // Picks up any change the settings app has written since the last start.
+    ReadFilterConfiguration();
 
     PDEVICE_OBJECT filterDevice = NULL;
     NTSTATUS status = IoCreateDevice(
@@ -76,6 +268,7 @@ NTSTATUS AddDevice(_In_ PDRIVER_OBJECT DriverObject, _In_ PDEVICE_OBJECT Pdo)
     IoInitializeRemoveLock(&extension->RemoveLock, 0, 0, 0);
     extension->DeviceObject = filterDevice;
     extension->Pdo = Pdo;
+    extension->DiagWorkItem = IoAllocateWorkItem(filterDevice);
 
     PDEVICE_OBJECT lowerDevice = IoAttachDeviceToDeviceStack(filterDevice, Pdo);
     if (lowerDevice == NULL)
@@ -122,6 +315,16 @@ NTSTATUS DispatchAny(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
         return CompleteRequest(Irp, status, 0);
     }
 
+    UCHAR major = IoGetCurrentIrpStackLocation(Irp)->MajorFunction;
+    if (major < RTL_NUMBER_OF(g_Diag.MajorCounts))
+    {
+        InterlockedIncrement(&g_Diag.MajorCounts[major]);
+    }
+    if ((InterlockedIncrement(&g_Diag.OtherIrps) % 64) == 1)
+    {
+        QueueDiag(extension);
+    }
+
     IoSkipCurrentIrpStackLocation(Irp);
     status = IoCallDriver(extension->LowerDeviceObject, Irp);
     IoReleaseRemoveLock(&extension->RemoveLock, Irp);
@@ -157,6 +360,8 @@ NTSTATUS DispatchPnp(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
     {
         return CompleteRequest(Irp, status, 0);
     }
+
+    InterlockedIncrement(&g_Diag.PnpIrps);
 
     if (stack->MinorFunction == IRP_MN_REMOVE_DEVICE)
     {
@@ -208,6 +413,9 @@ NTSTATUS StartDeviceComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp,
         extension->DeviceObject->Characteristics |= FILE_REMOVABLE_MEDIA;
     }
 
+    InterlockedIncrement(&g_Diag.StartCompletions);
+    QueueDiag(extension);
+
     IoReleaseRemoveLock(&extension->RemoveLock, Irp);
     return STATUS_SUCCESS;
 }
@@ -248,7 +456,46 @@ NTSTATUS InternalIoctlComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Ir
             {
                 PUCHAR buffer = (PUCHAR)brb->BrbL2caAclTransfer.Buffer;
                 ULONG size = brb->BrbL2caAclTransfer.BufferSize;
-                TryProcessAppleKeyboardTransportBuffer(buffer, size, 2);
+                LONG completions = InterlockedIncrement(&g_Diag.Completions);
+                if (buffer != NULL)
+                {
+                    InterlockedIncrement(&g_Diag.WithBuffer);
+                }
+                else if (brb->BrbL2caAclTransfer.BufferMDL != NULL)
+                {
+                    InterlockedIncrement(&g_Diag.WithMdl);
+                    buffer = (PUCHAR)MmGetSystemAddressForMdlSafe(
+                        brb->BrbL2caAclTransfer.BufferMDL,
+                        NormalPagePriority | MdlMappingNoExecute);
+                }
+                else
+                {
+                    InterlockedIncrement(&g_Diag.NoBuffer);
+                }
+
+                BOOLEAN interesting = FALSE;
+                if (buffer != NULL && size >= 4)
+                {
+                    ULONG copy = size < sizeof(g_Diag.LastRaw) ? size : sizeof(g_Diag.LastRaw);
+                    g_Diag.LastSize = (LONG)size;
+                    RtlCopyMemory(g_Diag.LastRaw, buffer, copy);
+                    if (buffer[3] != 0 || (size > 10 && buffer[10] != 0))
+                    {
+                        RtlZeroMemory(g_Diag.LastSpecialRaw, sizeof(g_Diag.LastSpecialRaw));
+                        RtlCopyMemory(g_Diag.LastSpecialRaw, buffer, copy);
+                        interesting = TRUE;
+                    }
+                }
+
+                if (TryProcessAppleKeyboardTransportBuffer(buffer, size, 2))
+                {
+                    InterlockedIncrement(&g_Diag.Processed);
+                }
+
+                if (interesting || completions == 1 || (completions % 32) == 0)
+                {
+                    QueueDiag(extension);
+                }
             }
         }
         else if (controlCode == IOCTL_INTERNAL_USB_SUBMIT_URB)
@@ -281,6 +528,130 @@ NTSTATUS InternalIoctlComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Ir
     return STATUS_SUCCESS;
 }
 
+// The report buffer of a read, whichever way this stack passes it along.
+static PUCHAR GetReadBuffer(_In_ PIRP Irp)
+{
+    if (Irp->MdlAddress != NULL)
+    {
+        InterlockedExchange(&g_Diag.BufferSource, 1);
+        return (PUCHAR)MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority | MdlMappingNoExecute);
+    }
+
+    if (Irp->AssociatedIrp.SystemBuffer != NULL)
+    {
+        InterlockedExchange(&g_Diag.BufferSource, 2);
+        return (PUCHAR)Irp->AssociatedIrp.SystemBuffer;
+    }
+
+    // Only trust a raw pointer when it is a kernel address: a user-mode one
+    // would belong to some other process by the time the read completes.
+    if ((ULONG_PTR)Irp->UserBuffer >= (ULONG_PTR)MM_SYSTEM_RANGE_START)
+    {
+        InterlockedExchange(&g_Diag.BufferSource, 3);
+        return (PUCHAR)Irp->UserBuffer;
+    }
+
+    return NULL;
+}
+
+NTSTATUS ReadComplete(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp, _In_ PVOID Context)
+{
+    UNREFERENCED_PARAMETER(DeviceObject);
+    PDEVICE_EXTENSION extension = (PDEVICE_EXTENSION)Context;
+
+    if (NT_SUCCESS(Irp->IoStatus.Status) && Irp->IoStatus.Information >= 9)
+    {
+        ULONG size = (ULONG)Irp->IoStatus.Information;
+        PUCHAR buffer = GetReadBuffer(Irp);
+        if (buffer != NULL)
+        {
+            ULONG copy = size < sizeof(g_Diag.LastReadRaw) ? size : sizeof(g_Diag.LastReadRaw);
+            RtlZeroMemory(g_Diag.LastReadRaw, sizeof(g_Diag.LastReadRaw));
+            RtlCopyMemory(g_Diag.LastReadRaw, buffer, copy);
+            InterlockedIncrement(&g_Diag.ReadsWithData);
+
+            // A 10-byte report is report ID 1 plus the 9-byte boot-keyboard
+            // body; a 9-byte one is the body on its own.
+            ULONG prefix = (size >= 10 && buffer[0] == 1) ? 1 : 0;
+            // Keep the last few non-empty reports exactly as they arrived, so
+            // this keyboard's real vendor-bit layout can be read off later.
+            BOOLEAN nonEmpty = FALSE;
+            for (ULONG i = prefix; i < size && i < prefix + 9; i++)
+            {
+                if (buffer[i] != 0) { nonEmpty = TRUE; break; }
+            }
+
+            if (!g_DiagEnabled) { TryProcessAppleKeyboardTransportBuffer(buffer, size, prefix); goto done; }
+
+            const UCHAR vendor = buffer[prefix + 8];
+            if (vendor & AppleSpecialFnMask) { InterlockedIncrement(&g_Diag.FnSeen); }
+            if (vendor & ~AppleSpecialFnMask) { InterlockedIncrement(&g_Diag.ExtraSeen); }
+
+            LONG slot = -1;
+            if (nonEmpty)
+            {
+                slot = (InterlockedIncrement(&g_Diag.ReportRingIndex) - 1) & 31;
+                RtlZeroMemory(g_Diag.ReportRing[slot], 10);
+                RtlCopyMemory(g_Diag.ReportRing[slot], buffer, copy < 10 ? copy : 10);
+            }
+            BOOLEAN special = (buffer[prefix + 8] != 0) || (buffer[prefix + 1] != 0);
+            if (special || nonEmpty)
+            {
+                RtlZeroMemory(g_Diag.LastReadSpecial, sizeof(g_Diag.LastReadSpecial));
+                RtlCopyMemory(g_Diag.LastReadSpecial, buffer, copy);
+            }
+
+            if (TryProcessAppleKeyboardTransportBuffer(buffer, size, prefix))
+            {
+                InterlockedIncrement(&g_Diag.ReadsProcessed);
+            }
+
+            // Read the buffer back afterwards: if the translation landed here
+            // but the keystroke never arrives, this is not the memory the
+            // caller ends up reading.
+            if (slot >= 0)
+            {
+                RtlZeroMemory(g_Diag.ReportRingOut[slot], 10);
+                RtlCopyMemory(g_Diag.ReportRingOut[slot], buffer, copy < 10 ? copy : 10);
+            }
+
+            if (special || nonEmpty)
+            {
+                QueueDiag(extension);
+            }
+        }
+    }
+
+done:
+    if (Irp->PendingReturned)
+    {
+        IoMarkIrpPending(Irp);
+    }
+
+    IoReleaseRemoveLock(&extension->RemoveLock, Irp);
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS DispatchRead(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
+{
+    PDEVICE_EXTENSION extension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
+
+    NTSTATUS status = IoAcquireRemoveLock(&extension->RemoveLock, Irp);
+    if (!NT_SUCCESS(status))
+    {
+        return CompleteRequest(Irp, status, 0);
+    }
+
+    if ((InterlockedIncrement(&g_Diag.Reads) % 32) == 1)
+    {
+        QueueDiag(extension);
+    }
+
+    IoCopyCurrentIrpStackLocationToNext(Irp);
+    IoSetCompletionRoutine(Irp, ReadComplete, extension, TRUE, TRUE, TRUE);
+    return IoCallDriver(extension->LowerDeviceObject, Irp);
+}
+
 NTSTATUS DispatchInternalIoctl(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Irp)
 {
     PDEVICE_EXTENSION extension = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
@@ -292,6 +663,21 @@ NTSTATUS DispatchInternalIoctl(_In_ PDEVICE_OBJECT DeviceObject, _Inout_ PIRP Ir
     if (!NT_SUCCESS(status))
     {
         return CompleteRequest(Irp, status, 0);
+    }
+
+    {
+        LONG slot = (InterlockedIncrement(&g_Diag.RingIndex) - 1) & 15;
+        ULONG type = 0;
+        if (controlCode == IOCTL_INTERNAL_BTH_SUBMIT_BRB && stack->Parameters.Others.Argument1 != NULL)
+        {
+            type = ((PBRB)stack->Parameters.Others.Argument1)->BrbHeader.Type;
+        }
+        g_Diag.Ring[slot][0] = controlCode;
+        g_Diag.Ring[slot][1] = type;
+        if ((InterlockedIncrement(&g_Diag.InternalIoctls) % 64) == 1)
+        {
+            QueueDiag(extension);
+        }
     }
 
     if (controlCode == IOCTL_INTERNAL_BTH_SUBMIT_BRB)
