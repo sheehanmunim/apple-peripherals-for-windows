@@ -4,7 +4,8 @@ param(
     [string]$Configuration = "Release",
     [string]$OutputDir = "",
     [string]$CertificateThumbprint = "",
-    [string]$TimestampUrl = "http://timestamp.digicert.com"
+    [string]$TimestampUrl = "http://timestamp.digicert.com",
+    [switch]$AllowMissingSpectreLibs
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,16 +27,52 @@ if (!$ResolvedArtifacts.StartsWith($ResolvedRepo, [StringComparison]::OrdinalIgn
     throw "OutputDir must be inside the repository."
 }
 
+# The kit is not always under Program Files: its real location is the one the
+# installer recorded in the registry.
+function Get-KitRoots {
+    $roots = @()
+    $installed = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots" -ErrorAction SilentlyContinue
+    foreach ($value in @($installed.KitsRoot10, $installed.WDKContentRoot)) {
+        if (![string]::IsNullOrWhiteSpace($value) -and (Test-Path $value)) {
+            $roots += $value.TrimEnd('\')
+        }
+    }
+
+    $roots += "${env:ProgramFiles(x86)}\Windows Kits\10"
+    $roots += "${env:ProgramFiles(x86)}\Windows Kits"
+    return $roots | Where-Object { Test-Path $_ } | Select-Object -Unique
+}
+
 function Find-Tool {
     param([string]$Name)
-    Get-ChildItem "C:\Program Files (x86)\Windows Kits" -Recurse -Filter $Name -ErrorAction SilentlyContinue |
-        Sort-Object FullName -Descending |
-        Select-Object -First 1 -ExpandProperty FullName
+    foreach ($root in Get-KitRoots) {
+        $hit = Get-ChildItem $root -Recurse -Filter $Name -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+        if ($hit) { return $hit }
+    }
 }
 
 function Find-MSBuild {
     $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
     if (Test-Path $vswhere) {
+        # The newest Visual Studio is not necessarily the one carrying the WDK
+        # extension, so pick an install that actually has the driver toolset.
+        foreach ($root in @(& $vswhere -all -format value -property installationPath)) {
+            $toolset = Get-ChildItem "$root\MSBuild\Microsoft\VC" -Directory -ErrorAction SilentlyContinue |
+                ForEach-Object { Join-Path $_.FullName "Platforms\$Platform\PlatformToolsets\WindowsKernelModeDriver10.0" } |
+                Where-Object { Test-Path $_ }
+            if (!$toolset) { continue }
+
+            $path = Get-ChildItem "$root\MSBuild" -Recurse -Filter MSBuild.exe -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -like "*\Bin\MSBuild.exe" -or $_.FullName -like "*\Bin\amd64\MSBuild.exe" } |
+                Sort-Object { $_.FullName -notlike "*\amd64\*" } |
+                Select-Object -First 1 -ExpandProperty FullName
+            if ($path) {
+                return $path
+            }
+        }
+
         $path = & $vswhere -latest -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
         if ($path) {
             return $path
@@ -49,9 +86,13 @@ function Find-MSBuild {
 }
 
 function Add-WdkToolsToPath {
-    $infVerifDll = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Tools" -Recurse -Filter InfVerif.dll -ErrorAction SilentlyContinue |
-        Sort-Object FullName -Descending |
-        Select-Object -First 1
+    $infVerifDll = $null
+    foreach ($root in Get-KitRoots) {
+        $infVerifDll = Get-ChildItem (Join-Path $root "Tools") -Recurse -Filter InfVerif.dll -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+        if ($infVerifDll) { break }
+    }
     if (!$infVerifDll) {
         return
     }
@@ -80,6 +121,14 @@ try {
 
     & $msbuild $ProjectPath "/p:Configuration=$Configuration" "/p:Platform=$Platform" /m
     $msbuildExitCode = $LASTEXITCODE
+
+    # MSB8040: the Spectre-mitigated libraries are a separate Visual Studio
+    # component. They matter for a shipped driver, not for a local test build.
+    if ($msbuildExitCode -ne 0 -and $AllowMissingSpectreLibs) {
+        Write-Warning "Retrying without Spectre mitigation (install the Spectre-mitigated libs component for a release build)."
+        & $msbuild $ProjectPath "/p:Configuration=$Configuration" "/p:Platform=$Platform" /p:SpectreMitigation=false /m
+        $msbuildExitCode = $LASTEXITCODE
+    }
 }
 finally {
     if ($wdkToolsRoot) {
