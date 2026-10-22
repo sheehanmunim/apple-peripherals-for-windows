@@ -12,6 +12,8 @@ static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject);
 #endif
 
 ULONG g_EmitFnAsF23 = 1;
+ULONG g_GlobeHidCode = HidF23;
+ULONG g_LockHidCode = HidKeyNone;
 
 static VOID RemoveDevice(_In_ PDEVICE_OBJECT DeviceObject)
 {
@@ -43,6 +45,23 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     DriverObject->MajorFunction[IRP_MJ_INTERNAL_DEVICE_CONTROL] = DispatchInternalIoctl;
 
     ReadDriverDword(RegistryPath, L"EmitFnAsF23", &g_EmitFnAsF23);
+    ReadDriverDword(RegistryPath, L"GlobeHidCode", &g_GlobeHidCode);
+    ReadDriverDword(RegistryPath, L"LockHidCode", &g_LockHidCode);
+
+    //
+    // Key array slots are one byte wide; ignore values that cannot be a
+    // keyboard usage rather than truncating them into a different key.
+    //
+    if (g_GlobeHidCode > 0xFF)
+    {
+        g_GlobeHidCode = HidF23;
+    }
+
+    if (g_LockHidCode > 0xFF)
+    {
+        g_LockHidCode = HidKeyNone;
+    }
+
     return STATUS_SUCCESS;
 }
 

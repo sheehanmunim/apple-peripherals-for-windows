@@ -28,6 +28,8 @@ extern "C" {
 #endif
 
 extern ULONG g_EmitFnAsF23;
+extern ULONG g_GlobeHidCode;
+extern ULONG g_LockHidCode;
 
 enum AppleKeyboardHidCodes
 {
@@ -38,6 +40,7 @@ enum AppleKeyboardHidCodes
 enum AppleKeyboardHidMasks
 {
     AppleSpecialFnMask = 0x02,
+    AppleSpecialLockMask = 0x08,
 };
 
 typedef struct _DEVICE_EXTENSION
